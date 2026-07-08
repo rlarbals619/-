@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
+import { registerIpcHandlers } from './ipcHandlers'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -35,10 +36,9 @@ function createWindow(): void {
   }
 }
 
-// Example IPC handler exposed to the renderer via the preload bridge.
-ipcMain.handle('app:getVersion', () => app.getVersion())
-
 app.whenReady().then(() => {
+  // Register all IPC handlers once the app (and app.getPath) is ready.
+  registerIpcHandlers()
   createWindow()
 
   app.on('activate', () => {
