@@ -47,14 +47,18 @@ export interface StageProgress {
   fraction?: number
 }
 
-/** pipeline:run 입력. */
+/**
+ * 파이프라인 입력(직렬화 가능 — 클라이언트가 FormData로 전송).
+ * 중복 필터 파일은 이 타입에 담지 않고(브라우저 File → 멀티파트),
+ * 서버 라우트가 별도로 파싱해 Pipeline.run에 전달한다.
+ */
 export interface PipelineConfig {
   /** 산업군 키워드 (예: "건강기능식품"). */
   industry: string
-  /** 중복/기존 후원처 파일 경로. 없으면 3단계 생략. */
-  dedupeFilePath?: string
   /** 최대 발굴 기업 수 (API 낭비 방지). */
   maxCompanies?: number
+  /** Anthropic 모델 id (없으면 서버 기본값). */
+  model?: string
 }
 
 /** pipeline:run 최종 결과. */

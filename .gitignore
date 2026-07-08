@@ -1,8 +1,11 @@
 node_modules/
+.next/
 out/
-dist-web/
-release/
+build/
 *.log
 .DS_Store
-.vite/
 *.tsbuildinfo
+.env
+.env.local
+.env*.local
+next-env.d.ts

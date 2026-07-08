@@ -1,13 +1,13 @@
-# 기업 리서치 & 사회공헌 제안 자동화 툴 (초록우산)
+# 기업 리서치 & 사회공헌 제안 자동화 웹앱 (초록우산)
 
 산업군 키워드를 입력하면 관련 **법인기업**을 자동으로 검색·수집하고, 후원 제안에
 필요한 핵심 정보를 표로 정리한 뒤, 각 기업 맞춤형 사회공헌 제안 문장과 메일 전문까지
-생성하는 데스크톱 앱입니다. **Electron + React + TypeScript + Tailwind CSS +
-Anthropic API** 기반이며, 추후 웹 서비스로 포팅할 수 있도록 설계되어 있습니다.
+생성하는 **웹앱**입니다. **Next.js(App Router) + React + TypeScript + Tailwind CSS +
+Anthropic API** 기반입니다.
 
 ## 처리 파이프라인
 
-1. **검색·수집** — 산업군 키워드로 관련 법인기업을 웹에서 검색 (Claude web_search)
+1. **검색·수집** — 산업군 키워드로 관련 법인기업을 웹에서 검색 (서버에서 Claude web_search)
 2. **법인 필터** — 사업자등록번호 4번째 자리가 `8`인 법인만 유지 (엄격)
 3. **중복 제거** — 기존 후원처 파일(xlsx/csv) 업로드 시에만, 사업자번호→기업명 순 매칭 제거
 4. **정보 수집** — 남은 기업의 홈페이지·주소·전화·이메일 보강
@@ -16,57 +16,65 @@ Anthropic API** 기반이며, 추후 웹 서비스로 포팅할 수 있도록 �
 
 무거운 작업(제안 문장 생성)을 마지막에 배치해 걸러진 기업에 대한 API 낭비를 막습니다.
 
-## 아키텍처 (웹 포팅 대비)
+## 아키텍처
 
-- **Renderer** (`src/renderer`): 순수 React UI. 네이티브 기능은 **플랫폼 어댑터**
-  한 곳(`src/renderer/src/platform/index.ts`)으로만 접근 — 컴포넌트는 `window.api`를
-  직접 호출하지 않습니다. 이 어댑터가 Electron이면 IPC를, 웹이면 백엔드 호출을 씁니다.
-- **Main** (`src/main`): 크롤링·파일 IO·Anthropic 호출 등 모든 로직. 각 로직은
-  `src/main/services/types.ts`의 **인터페이스로 추상화**되어 있어, 웹 포팅 시 같은
-  인터페이스의 서버 구현으로 교체하면 됩니다.
-- **Shared** (`src/shared`): 메인·렌더러 공용 순수 TS (타입, 사업자번호 판별, 메일 템플릿).
+- **UI (`src/app/page.tsx`, `src/components`)**: 순수 React(클라이언트). 서버 접근은
+  **플랫폼 어댑터** 한 곳(`src/platform/index.ts`)으로만 — 컴포넌트는 `fetch`를 직접
+  부르지 않습니다.
+- **API 라우트 (`src/app/api`)**: 크롤링·검색·파일 처리·Anthropic 호출 등 모든 서버
+  로직. 서버 사이드라 브라우저 CORS 제약이 없습니다.
+  - `api/pipeline` — multipart(FormData) 입력, **NDJSON 스트림**으로 단계별 진행 상황을
+    실시간 전송(스텝퍼가 라이브로 갱신).
+  - `api/export` — JSON 입력, xlsx/csv 파일 다운로드 응답.
+- **로직 계층 (`src/lib`)**: `services/*`(인터페이스로 추상화된 Anthropic/Node 구현)와
+  `pipeline.ts`(6단계 오케스트레이션). API 라우트가 이 계층을 주입해 사용합니다.
+- **Shared (`src/shared`)**: 서버·클라이언트 공용 순수 TS (타입, 사업자번호 판별, 메일 템플릿).
 
 ```
 src/
-  shared/            타입·사업자번호 유틸·메일 템플릿 (의존성 없는 순수 TS)
-  main/
-    services/        서비스 인터페이스 + Anthropic/Node 구현 (웹 포팅 추상화)
-    pipeline.ts      6단계 오케스트레이션 + 진행상황 emit
-    ipcHandlers.ts   모든 IPC 핸들러 등록
-  preload/index.ts   contextBridge로 안전한 window.api 노출
-  renderer/src/
-    platform/        ★ Electron/Web 분기 어댑터 — 웹 포팅의 핵심
-    lib/, components/ React 훅·컴포넌트
+  app/
+    layout.tsx  page.tsx  globals.css
+    api/pipeline/route.ts   POST multipart → NDJSON 스트림
+    api/export/route.ts     POST JSON → xlsx/csv 다운로드
+  components/               SearchBar · PipelineStepper · CompanyTable
+                           · DetailPanel · SettingsModal · ExportBar
+  hooks/usePipeline.ts      스트리밍 소비 훅
+  lib/
+    services/*              types · anthropic · companySearch · infoCollector
+                           · dedupe · proposal · exporter
+    pipeline.ts  stages.ts
+  platform/index.ts         ★ fetch API 클라이언트 (UI ↔ 서버 경계)
+  shared/                   types · bizNumber · emailTemplate (순수)
 ```
 
 ## 사용법
 
-1. `npm install` 후 `npm run dev`로 실행합니다.
-2. 우측 상단 **⚙ 설정**에서 Anthropic API 키를 입력합니다.
-   키는 OS 보안 저장소(Electron `safeStorage`)에 암호화되어 저장됩니다.
-3. 산업군 키워드(예: "건강기능식품")를 입력하고 검색을 시작합니다.
-4. (선택) 기존 후원처 파일을 올리면 중복을 자동 제외합니다.
+1. `.env.local`을 만들고 API 키를 넣습니다(`.env.local.example` 참고):
+   ```
+   ANTHROPIC_API_KEY=sk-ant-...
+   ANTHROPIC_MODEL=claude-sonnet-5
+   ```
+2. `npm install` 후 `npm run dev` → http://localhost:3000
+3. 산업군 키워드(예: "건강기능식품")를 입력하고 검색을 시작합니다. 스텝퍼가 실시간으로 갱신됩니다.
+4. (선택) 기존 후원처 파일(xlsx/csv)을 올리면 중복을 자동 제외합니다.
 5. 표에서 행을 클릭하면 사이드 패널에서 상세 정보·제안 문단·메일 전문을 확인/복사할 수 있습니다.
-6. 상단 **내보내기**로 xlsx/CSV를 저장합니다.
+6. 상단 **내보내기**로 xlsx/CSV를 다운로드합니다.
 
 ## 명령어
 
 ```bash
 npm install
-
-npm run dev          # Electron 창 + HMR (데스크톱)
-npm run build        # 데스크톱 번들 (out/)
-npm run package      # 설치 파일 생성 (release/) — electron-builder
-
-npm run build:web    # 웹 산출물 빌드 (dist-web/) — 렌더러가 순수 웹으로 빌드되는지 확인
-npm run preview:web  # 브라우저에서 웹 버전 미리보기
-
-npm run typecheck    # 타입 검사 (node + web)
+npm run dev        # 개발 서버 (http://localhost:3000)
+npm run build      # 프로덕션 빌드
+npm run start      # 프로덕션 서버 실행
+npm run typecheck  # 타입 검사
 ```
 
 ## 참고
 
+- API 키는 **서버 환경변수**로만 관리되며 브라우저에 노출되지 않습니다.
 - 한국 기업정보 공개 API는 제한적이라, 기업 발굴·정보 수집은 Claude의 `web_search`
   서버 도구를 사용합니다. 유료 DB의 무단 크롤링은 하지 않습니다.
-- 등록 업종과 실제 사업이 다를 수 있어, 홈페이지 기준으로 실제 사업 내용을 재확인합니다.
-- 코드 서명·자동 업데이트(electron-updater)는 추후 단계입니다.
+- 파이프라인은 기업 수만큼 web_search를 돌려 수 분이 걸릴 수 있습니다. 서버리스(예:
+  Vercel)에 배포할 경우 함수 실행시간 제한(`maxDuration`)에 유의하세요. 라우트에는
+  `maxDuration = 300`을 지정해 두었습니다.
