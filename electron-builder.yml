@@ -1,0 +1,15 @@
+appId: com.example.electron-local-app
+productName: Electron Local App
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+mac:
+  target: dmg
+win:
+  target: nsis
+linux:
+  target: AppImage
+  category: Utility
