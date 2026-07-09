@@ -1,9 +1,12 @@
 import type { Company } from '../../shared/types'
 import { closingSentence, hasValidClosing, warmFallbackParagraph } from '../../shared/emailTemplate'
+import { mapWithConcurrency, throwIfAborted } from '../concurrency'
 import type { AnthropicService } from './anthropic'
 import type { ProgressReporter, ProposalService } from './types'
 
 // 최종 후보 기업별 맞춤 제안 문단 생성(가장 무거운 단계 → 파이프라인 마지막 직전).
+
+const CONCURRENCY = 4
 
 const SYSTEM = `당신은 초록우산어린이재단 사회공헌협력본부의 제안 담당자입니다.
 기업에 보낼 후원 제안 메일에 들어갈 "맞춤 문단"을 작성합니다. 규칙:
@@ -16,19 +19,26 @@ const SYSTEM = `당신은 초록우산어린이재단 사회공헌협력본부�
 export class AnthropicProposalService implements ProposalService {
   constructor(private readonly ai: AnthropicService) {}
 
-  async generate(companies: Company[], report: ProgressReporter): Promise<Company[]> {
-    const result: Company[] = []
+  async generate(
+    companies: Company[],
+    report: ProgressReporter,
+    signal?: AbortSignal
+  ): Promise<Company[]> {
+    if (companies.length === 0) return companies
     let done = 0
-    for (const company of companies) {
-      report(`제안 문장 생성: ${company.name}`, done / Math.max(companies.length, 1))
-      result.push({ ...company, proposal: await this.one(company) })
-      done += 1
-    }
-    report('제안 문장 생성 완료', 1)
-    return result
+    return mapWithConcurrency(
+      companies,
+      CONCURRENCY,
+      async (company) => ({ ...company, proposal: await this.one(company, signal) }),
+      {
+        signal,
+        onSettled: () =>
+          report(`제안 문장 생성 ${++done}/${companies.length}`, done / companies.length)
+      }
+    )
   }
 
-  private async one(company: Company): Promise<string> {
+  private async one(company: Company, signal?: AbortSignal): Promise<string> {
     const closing = closingSentence(company.name)
     const context = [
       `기업명: ${company.name}`,
@@ -47,7 +57,7 @@ export class AnthropicProposalService implements ProposalService {
 "${closing}"`
 
     try {
-      const text = await this.ai.generateText(SYSTEM, user, 600)
+      const text = await this.ai.generateText(SYSTEM, user, 600, { signal })
       const cleaned = text.trim()
       if (!cleaned) return warmFallbackParagraph(company.name)
       // 마무리 문장이 규정과 다르면 보정.
@@ -57,6 +67,7 @@ export class AnthropicProposalService implements ProposalService {
       }
       return cleaned
     } catch (err) {
+      throwIfAborted(signal)
       console.error(`제안 문장 생성 실패(${company.name}):`, err)
       return warmFallbackParagraph(company.name)
     }

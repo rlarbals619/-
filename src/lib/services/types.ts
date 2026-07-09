@@ -17,15 +17,28 @@ export interface DedupeInput {
 
 /** 1단계: 산업군 → 기업 후보 발굴. */
 export interface CompanySearchService {
-  search(industry: string, maxCompanies: number, report: ProgressReporter): Promise<Company[]>
+  search(
+    industry: string,
+    maxCompanies: number,
+    report: ProgressReporter,
+    signal?: AbortSignal
+  ): Promise<Company[]>
 }
 
 /** 정보 수집 서비스. 번호 해석(필터 직전)과 연락처 수집(dedupe 이후)을 분리. */
 export interface InfoCollectorService {
   /** 2단계 직전: 사업자등록번호가 없는 기업만 대상으로 번호를 보강(엄격 필터 생존율 개선). */
-  resolveBizNumbers(companies: Company[], report: ProgressReporter): Promise<Company[]>
+  resolveBizNumbers(
+    companies: Company[],
+    report: ProgressReporter,
+    signal?: AbortSignal
+  ): Promise<Company[]>
   /** 4단계: 남은 기업의 홈페이지·주소·전화·이메일을 보강. */
-  collectContacts(companies: Company[], report: ProgressReporter): Promise<Company[]>
+  collectContacts(
+    companies: Company[],
+    report: ProgressReporter,
+    signal?: AbortSignal
+  ): Promise<Company[]>
 }
 
 /** 3단계: 업로드 파일 기반 기존 후원처 제거. */
@@ -36,7 +49,11 @@ export interface DedupeService {
 
 /** 5단계: 기업별 맞춤 제안 문단 생성. */
 export interface ProposalService {
-  generate(companies: Company[], report: ProgressReporter): Promise<Company[]>
+  generate(
+    companies: Company[],
+    report: ProgressReporter,
+    signal?: AbortSignal
+  ): Promise<Company[]>
 }
 
 /** 6단계: 표를 xlsx/csv 버퍼로 내보내기(라우트가 다운로드 응답으로 전송). */

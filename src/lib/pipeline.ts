@@ -7,6 +7,7 @@ import type {
   StageStatus
 } from '../shared/types'
 import { isCorporate } from '../shared/bizNumber'
+import { throwIfAborted } from './concurrency'
 import type {
   CompanySearchService,
   DedupeInput,
@@ -35,7 +36,8 @@ export class Pipeline {
   async run(
     config: PipelineConfig,
     emit: EmitProgress,
-    dedupeFile: DedupeInput | null = null
+    dedupeFile: DedupeInput | null = null,
+    signal?: AbortSignal
   ): Promise<PipelineResult> {
     const tracker = new StageTracker(emit)
     const max = config.maxCompanies && config.maxCompanies > 0 ? config.maxCompanies : 15
@@ -43,13 +45,14 @@ export class Pipeline {
     try {
       // 1. 검색·수집
       let companies = await tracker.run('search', (report) =>
-        this.search.search(config.industry, max, report)
+        this.search.search(config.industry, max, report, signal)
       )
       tracker.done('search', `${companies.length}개 기업 발굴`)
+      throwIfAborted(signal)
 
       // 2. 법인 필터(엄격) — 필터 직전 사업자등록번호 보강.
       companies = await tracker.run('corpFilter', (report) =>
-        this.info.resolveBizNumbers(companies, report)
+        this.info.resolveBizNumbers(companies, report, signal)
       )
       const beforeCorp = companies.length
       companies = companies.filter((c) => isCorporate(c.bizNumber))
@@ -58,6 +61,7 @@ export class Pipeline {
         `법인 ${companies.length}곳 유지`,
         beforeCorp - companies.length
       )
+      throwIfAborted(signal)
 
       // 3. 중복/기존 후원처 필터(파일 있을 때만).
       if (dedupeFile) {
@@ -70,22 +74,27 @@ export class Pipeline {
         tracker.skip('dedupe', '업로드 파일 없음 — 생략')
       }
 
+      throwIfAborted(signal)
+
       // 4. 정보 수집(남은 기업만).
       companies = await tracker.run('collect', (report) =>
-        this.info.collectContacts(companies, report)
+        this.info.collectContacts(companies, report, signal)
       )
       tracker.done('collect', `${companies.length}곳 정보 수집`)
+      throwIfAborted(signal)
 
       // 5. 제안 문장 생성(최종 남은 기업만).
       companies = await tracker.run('proposal', (report) =>
-        this.proposal.generate(companies, report)
+        this.proposal.generate(companies, report, signal)
       )
       tracker.done('proposal', `${companies.length}곳 제안 문장 생성`)
 
       tracker.done('done', '완료')
       return { companies, stages: tracker.snapshot() }
     } catch (err) {
-      tracker.fail(err instanceof Error ? err.message : String(err))
+      // 취소는 에러가 아니므로 실패 단계로 표시하지 않는다.
+      const aborted = signal?.aborted || (err instanceof Error && err.name === 'AbortError')
+      if (!aborted) tracker.fail(err instanceof Error ? err.message : String(err))
       throw err
     }
   }

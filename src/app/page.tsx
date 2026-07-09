@@ -13,7 +13,7 @@ import { SettingsModal } from '@/components/SettingsModal'
 import { ExportBar } from '@/components/ExportBar'
 
 export default function Page(): JSX.Element {
-  const { running, stages, companies, error, run } = usePipeline()
+  const { running, stages, companies, error, canceled, run, cancel } = usePipeline()
   const [selected, setSelected] = useState<Company | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
@@ -71,6 +71,27 @@ export default function Page(): JSX.Element {
           {error && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
+            </div>
+          )}
+
+          {canceled && !running && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              작업이 취소되었습니다.
+            </div>
+          )}
+
+          {running && (
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm">
+              <span className="flex items-center gap-2 text-slate-600">
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+                파이프라인 실행 중…
+              </span>
+              <button
+                onClick={cancel}
+                className="rounded-md border border-red-300 px-3 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50"
+              >
+                취소
+              </button>
             </div>
           )}
 

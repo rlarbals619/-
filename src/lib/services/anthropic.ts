@@ -12,6 +12,17 @@ const WEB_SEARCH_TOOL = {
   max_uses: 6
 }
 
+/** 구조화 출력용 클라이언트 도구 정의. */
+export interface OutputTool {
+  name: string
+  description?: string
+  input_schema: Anthropic.Messages.Tool.InputSchema
+}
+
+export interface CallOpts {
+  signal?: AbortSignal
+}
+
 export class AnthropicService {
   private readonly apiKey: string
   private readonly modelId: string
@@ -44,29 +55,76 @@ export class AnthropicService {
   }
 
   /**
-   * web_search를 붙여 프롬프트를 실행하고, 응답 텍스트에서 JSON을 파싱한다.
-   * 모델이 코드펜스(```json)로 감싸거나 앞뒤 설명을 붙여도 견디도록 관대하게 추출.
+   * web_search + 구조화 출력 도구를 붙여 실행하고, 도구 호출 입력(input)을 T로 반환한다.
+   * 모델이 도구를 호출하지 않으면 응답 텍스트에서 JSON을 파싱하는 폴백을 사용(이중 안전).
    */
-  async searchJson<T>(system: string, user: string, maxTokens = 4096): Promise<T> {
-    const message = await this.client().messages.create({
-      model: this.model(),
-      max_tokens: maxTokens,
-      system,
-      tools: [WEB_SEARCH_TOOL],
-      messages: [{ role: 'user', content: user }]
-    })
-    const text = AnthropicService.joinText(message.content)
-    return extractJson<T>(text)
+  async searchStructured<T>(
+    system: string,
+    user: string,
+    outputTool: OutputTool,
+    maxTokens = 4096,
+    opts: CallOpts = {}
+  ): Promise<T> {
+    const tools: Anthropic.Messages.ToolUnion[] = [
+      WEB_SEARCH_TOOL,
+      {
+        name: outputTool.name,
+        description: outputTool.description,
+        input_schema: outputTool.input_schema
+      }
+    ]
+    const message = await this.client().messages.create(
+      {
+        model: this.model(),
+        max_tokens: maxTokens,
+        system,
+        tools,
+        messages: [{ role: 'user', content: user }]
+      },
+      { signal: opts.signal }
+    )
+    const toolUse = message.content.find(
+      (b): b is Anthropic.Messages.ToolUseBlock =>
+        b.type === 'tool_use' && b.name === outputTool.name
+    )
+    if (toolUse) return toolUse.input as T
+    // 폴백: 텍스트에서 JSON 추출.
+    return extractJson<T>(AnthropicService.joinText(message.content))
+  }
+
+  /**
+   * web_search를 붙여 프롬프트를 실행하고, 응답 텍스트에서 JSON을 파싱한다(폴백 경로).
+   */
+  async searchJson<T>(system: string, user: string, maxTokens = 4096, opts: CallOpts = {}): Promise<T> {
+    const message = await this.client().messages.create(
+      {
+        model: this.model(),
+        max_tokens: maxTokens,
+        system,
+        tools: [WEB_SEARCH_TOOL],
+        messages: [{ role: 'user', content: user }]
+      },
+      { signal: opts.signal }
+    )
+    return extractJson<T>(AnthropicService.joinText(message.content))
   }
 
   /** web_search 없이 순수 텍스트 생성(제안 문단 등). */
-  async generateText(system: string, user: string, maxTokens = 1024): Promise<string> {
-    const message = await this.client().messages.create({
-      model: this.model(),
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: 'user', content: user }]
-    })
+  async generateText(
+    system: string,
+    user: string,
+    maxTokens = 1024,
+    opts: CallOpts = {}
+  ): Promise<string> {
+    const message = await this.client().messages.create(
+      {
+        model: this.model(),
+        max_tokens: maxTokens,
+        system,
+        messages: [{ role: 'user', content: user }]
+      },
+      { signal: opts.signal }
+    )
     return AnthropicService.joinText(message.content).trim()
   }
 }

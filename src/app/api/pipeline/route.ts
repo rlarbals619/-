@@ -61,13 +61,22 @@ export async function POST(req: NextRequest): Promise<Response> {
         const result = await pipeline.run(
           config,
           (progress) => write({ type: 'progress', progress }),
-          dedupeFile
+          dedupeFile,
+          req.signal
         )
         write({ type: 'result', companies: result.companies, stages: result.stages })
       } catch (err) {
-        write({ type: 'error', message: err instanceof Error ? err.message : String(err) })
+        // 클라이언트 취소면 에러 라인을 쓰지 않고 조용히 종료.
+        const aborted = req.signal.aborted || (err instanceof Error && err.name === 'AbortError')
+        if (!aborted) {
+          write({ type: 'error', message: err instanceof Error ? err.message : String(err) })
+        }
       } finally {
-        controller.close()
+        try {
+          controller.close()
+        } catch {
+          /* 이미 취소된 스트림 */
+        }
       }
     }
   })

@@ -25,7 +25,8 @@ type StreamLine =
  */
 export async function runPipeline(
   input: PipelineInput,
-  onProgress: (p: StageProgress) => void
+  onProgress: (p: StageProgress) => void,
+  signal?: AbortSignal
 ): Promise<PipelineResult> {
   const form = new FormData()
   form.set('industry', input.industry)
@@ -33,7 +34,7 @@ export async function runPipeline(
   if (input.model) form.set('model', input.model)
   if (input.dedupeFile) form.set('dedupeFile', input.dedupeFile)
 
-  const res = await fetch('/api/pipeline', { method: 'POST', body: form })
+  const res = await fetch('/api/pipeline', { method: 'POST', body: form, signal })
   if (!res.ok || !res.body) {
     const text = await res.text().catch(() => '')
     throw new Error(text || `요청 실패 (${res.status})`)
