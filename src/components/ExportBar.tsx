@@ -29,23 +29,23 @@ export function ExportBar({ companies }: Props): JSX.Element {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <span className="text-sm font-medium text-slate-600">내보내기</span>
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <span className="text-sm font-medium text-slate-600 dark:text-slate-300">내보내기</span>
       <button
         onClick={() => exportAs('xlsx')}
         disabled={busy || !companies.length}
-        className="rounded-lg border border-brand px-3 py-1.5 text-sm font-medium text-brand-dark hover:bg-brand-light disabled:opacity-40"
+        className="rounded-lg border border-brand px-3 py-1.5 text-sm font-medium text-brand-dark transition hover:bg-brand-light focus-visible:ring-2 focus-visible:ring-brand/40 disabled:opacity-40 dark:text-brand dark:hover:bg-brand/15"
       >
         엑셀 (.xlsx)
       </button>
       <button
         onClick={() => exportAs('csv')}
         disabled={busy || !companies.length}
-        className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+        className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-brand/40 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
       >
         CSV
       </button>
-      <label className="flex items-center gap-1.5 text-sm text-slate-600">
+      <label className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
         <input
           type="checkbox"
           checked={includeEmails}
@@ -54,7 +54,9 @@ export function ExportBar({ companies }: Props): JSX.Element {
         />
         메일 전문 컬럼 포함
       </label>
-      {msg && <span className="text-xs text-slate-500">{msg}</span>}
+      <span className="text-xs text-slate-500 dark:text-slate-400" role="status" aria-live="polite">
+        {msg}
+      </span>
     </div>
   )
 }

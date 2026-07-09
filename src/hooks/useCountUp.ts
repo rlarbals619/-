@@ -12,6 +12,15 @@ export function useCountUp(target: number, durationMs = 400): number {
   useEffect(() => {
     const from = fromRef.current
     if (from === target) return
+    // 모션 최소화 선호 시 애니메이션 없이 즉시 목표값으로.
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    ) {
+      fromRef.current = target
+      setValue(target)
+      return
+    }
     startRef.current = performance.now()
 
     const tick = (now: number): void => {

@@ -62,25 +62,40 @@ export function CompanyTable({ companies, selectedId, onSelect }: Props): JSX.El
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2">
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div
+        role="group"
+        aria-label="상태 필터"
+        className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2 dark:border-slate-800"
+      >
         <FilterChip active={filter === 'all'} onClick={() => setFilter('all')} label={`전체 ${counts.all}`} />
         <FilterChip active={filter === 'success'} onClick={() => setFilter('success')} label={`성공 ${counts.success}`} />
         <FilterChip active={filter === 'issue'} onClick={() => setFilter('issue')} label={`이슈·취소 ${counts.issue}`} />
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[800px] border-collapse text-sm">
+          <caption className="sr-only">발굴된 기업 목록. 열 제목을 눌러 정렬할 수 있습니다.</caption>
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-left">
-              <th className="px-3 py-2 font-semibold text-slate-600">상태</th>
+            <tr className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-700 dark:bg-slate-800/60">
+              <th scope="col" className="px-3 py-2 font-semibold text-slate-600 dark:text-slate-300">
+                상태
+              </th>
               {COLUMNS.map((c) => (
                 <th
                   key={c.key}
-                  onClick={() => toggleSort(c.key)}
-                  className="cursor-pointer select-none whitespace-nowrap px-3 py-2 font-semibold text-slate-600 hover:text-brand-dark"
+                  scope="col"
+                  aria-sort={sortKey === c.key ? (asc ? 'ascending' : 'descending') : 'none'}
+                  className="px-0 py-0 font-semibold text-slate-600 dark:text-slate-300"
                 >
-                  {c.label}
-                  {sortKey === c.key && <span className="ml-1 text-brand">{asc ? '▲' : '▼'}</span>}
+                  <button
+                    onClick={() => toggleSort(c.key)}
+                    className="flex w-full items-center gap-1 whitespace-nowrap px-3 py-2 text-left hover:text-brand-dark focus-visible:ring-2 focus-visible:ring-brand/40 dark:hover:text-brand"
+                  >
+                    {c.label}
+                    <span className="text-brand" aria-hidden>
+                      {sortKey === c.key ? (asc ? '▲' : '▼') : ''}
+                    </span>
+                  </button>
                 </th>
               ))}
             </tr>
@@ -90,8 +105,20 @@ export function CompanyTable({ companies, selectedId, onSelect }: Props): JSX.El
               <tr
                 key={company.id}
                 onClick={() => onSelect(company)}
-                className={`cursor-pointer border-b border-slate-100 transition ${
-                  selectedId === company.id ? 'bg-brand-light' : 'hover:bg-slate-50'
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onSelect(company)
+                  }
+                }}
+                tabIndex={0}
+                role="button"
+                aria-label={`${company.name} 상세 보기`}
+                aria-current={selectedId === company.id ? true : undefined}
+                className={`cursor-pointer border-b border-slate-100 transition focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/50 dark:border-slate-800 ${
+                  selectedId === company.id
+                    ? 'bg-brand-light dark:bg-brand/20'
+                    : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
                 }`}
               >
                 <td className="px-3 py-2 align-top">
@@ -103,7 +130,9 @@ export function CompanyTable({ companies, selectedId, onSelect }: Props): JSX.El
                     <td
                       key={c.key}
                       className={`max-w-[220px] truncate px-3 py-2 align-top ${
-                        value == null ? 'bg-red-50 text-red-400' : 'text-slate-700'
+                        value == null
+                          ? 'bg-red-50 text-red-400 dark:bg-red-950/40 dark:text-red-400'
+                          : 'text-slate-700 dark:text-slate-200'
                       }`}
                       title={value ?? '정보 없음'}
                     >
@@ -115,7 +144,10 @@ export function CompanyTable({ companies, selectedId, onSelect }: Props): JSX.El
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={COLUMNS.length + 1} className="px-3 py-8 text-center text-slate-400">
+                <td
+                  colSpan={COLUMNS.length + 1}
+                  className="px-3 py-8 text-center text-slate-400 dark:text-slate-500"
+                >
                   결과가 없습니다.
                 </td>
               </tr>
@@ -128,9 +160,9 @@ export function CompanyTable({ companies, selectedId, onSelect }: Props): JSX.El
 }
 
 const BADGE_STYLE: Record<CompanyStatus, string> = {
-  success: 'bg-brand-light text-brand-dark',
-  issue: 'bg-amber-50 text-amber-700',
-  canceled: 'bg-slate-100 text-slate-500'
+  success: 'bg-brand-light text-brand-dark dark:bg-brand/20 dark:text-brand',
+  issue: 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
+  canceled: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
 }
 
 function StatusBadge({ company }: { company: Company }): JSX.Element {
@@ -142,6 +174,7 @@ function StatusBadge({ company }: { company: Company }): JSX.Element {
       title={summary || STATUS_LABEL[st]}
     >
       {STATUS_LABEL[st]}
+      {summary ? <span className="sr-only">: {summary}</span> : null}
     </span>
   )
 }
@@ -158,8 +191,11 @@ function FilterChip({
   return (
     <button
       onClick={onClick}
-      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-        active ? 'bg-brand text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+      aria-pressed={active}
+      className={`rounded-full px-3 py-1 text-xs font-medium transition focus-visible:ring-2 focus-visible:ring-brand/40 ${
+        active
+          ? 'bg-brand text-white'
+          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
       }`}
     >
       {label}
