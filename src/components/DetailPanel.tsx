@@ -4,6 +4,8 @@ import { useState } from 'react'
 import type { Company } from '@shared/types'
 import { formatBizNumber } from '@shared/bizNumber'
 import { buildEmail } from '@shared/emailTemplate'
+import { companyStatus, STATUS_LABEL } from '@shared/companyStatus'
+import { STAGE_LABEL } from '@/lib/stages'
 
 interface Props {
   company: Company | null
@@ -25,6 +27,22 @@ export function DetailPanel({ company, onClose }: Props): JSX.Element | null {
       </header>
 
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
+        {(company.issues?.length || company.canceled) && (
+          <section className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <h3 className="mb-1 text-xs font-semibold text-amber-700">
+              처리 상태: {STATUS_LABEL[companyStatus(company)]}
+            </h3>
+            {company.canceled && (
+              <p className="text-xs text-amber-700">취소 시점에 완료되지 않은 항목입니다.</p>
+            )}
+            {company.issues?.map((issue, i) => (
+              <p key={i} className="text-xs text-amber-700">
+                • [{STAGE_LABEL[issue.stage]}] {issue.reason}
+              </p>
+            ))}
+          </section>
+        )}
+
         <section>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             수집 정보

@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import type { Company } from '../../shared/types'
 import type { AnthropicService, OutputTool } from './anthropic'
-import type { CompanySearchService, ProgressReporter } from './types'
+import type { CompanySearchService, StageContext } from './types'
 
 interface RawCompany {
   name?: string
@@ -47,13 +47,8 @@ const OUTPUT_TOOL: OutputTool = {
 export class AnthropicCompanySearch implements CompanySearchService {
   constructor(private readonly ai: AnthropicService) {}
 
-  async search(
-    industry: string,
-    maxCompanies: number,
-    report: ProgressReporter,
-    signal?: AbortSignal
-  ): Promise<Company[]> {
-    report(`"${industry}" 산업군 기업을 검색하는 중…`)
+  async search(industry: string, maxCompanies: number, ctx: StageContext): Promise<Company[]> {
+    ctx.report({ message: `"${industry}" 산업군 기업을 검색하는 중…` })
 
     const user = `산업군: "${industry}"
 
@@ -65,7 +60,7 @@ export class AnthropicCompanySearch implements CompanySearchService {
       user,
       OUTPUT_TOOL,
       6000,
-      { signal }
+      { signal: ctx.signal }
     )
     const list = Array.isArray(result?.companies) ? result.companies : []
 
@@ -84,7 +79,7 @@ export class AnthropicCompanySearch implements CompanySearchService {
         proposal: null
       }))
 
-    report(`${companies.length}개 기업 발굴`)
+    ctx.report({ message: `${companies.length}개 기업 발굴` })
     return companies
   }
 }

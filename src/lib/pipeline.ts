@@ -14,16 +14,21 @@ import type {
   DedupeService,
   InfoCollectorService,
   ProgressReporter,
-  ProposalService
+  ProposalService,
+  StageContext
 } from './services/types'
 
-// 파이프라인 오케스트레이션. 각 단계 진행 상황을 emit으로 흘려보내고,
+// 파이프라인 오케스트레이션. 각 단계 진행 상황과 완료 기업을 sink로 흘려보내고,
 // 최종 기업 목록 + 단계 요약을 반환한다.
 //
 // 순서(무거운 작업을 마지막에):
 // 1 검색 → 2 법인 필터(엄격) → 3 중복 필터(선택) → 4 정보 수집 → 5 제안 문장.
 
-export type EmitProgress = (progress: StageProgress) => void
+/** 진행 상황(단계) + 완료 기업 스트리밍 채널. */
+export interface PipelineSink {
+  progress: (progress: StageProgress) => void
+  company: (company: Company) => void
+}
 
 export class Pipeline {
   constructor(
@@ -35,24 +40,29 @@ export class Pipeline {
 
   async run(
     config: PipelineConfig,
-    emit: EmitProgress,
+    sink: PipelineSink,
     dedupeFile: DedupeInput | null = null,
     signal?: AbortSignal
   ): Promise<PipelineResult> {
-    const tracker = new StageTracker(emit)
+    const tracker = new StageTracker(sink.progress)
     const max = config.maxCompanies && config.maxCompanies > 0 ? config.maxCompanies : 15
+    const ctx = (stage: PipelineStage, onCompany?: (c: Company) => void): StageContext => ({
+      report: tracker.reporter(stage),
+      signal,
+      onCompany
+    })
 
     try {
       // 1. 검색·수집
-      let companies = await tracker.run('search', (report) =>
-        this.search.search(config.industry, max, report, signal)
+      let companies = await tracker.run('search', () =>
+        this.search.search(config.industry, max, ctx('search'))
       )
       tracker.done('search', `${companies.length}개 기업 발굴`)
       throwIfAborted(signal)
 
       // 2. 법인 필터(엄격) — 필터 직전 사업자등록번호 보강.
-      companies = await tracker.run('corpFilter', (report) =>
-        this.info.resolveBizNumbers(companies, report, signal)
+      companies = await tracker.run('corpFilter', () =>
+        this.info.resolveBizNumbers(companies, ctx('corpFilter'))
       )
       const beforeCorp = companies.length
       companies = companies.filter((c) => isCorporate(c.bizNumber))
@@ -76,16 +86,16 @@ export class Pipeline {
 
       throwIfAborted(signal)
 
-      // 4. 정보 수집(남은 기업만).
-      companies = await tracker.run('collect', (report) =>
-        this.info.collectContacts(companies, report, signal)
+      // 4. 정보 수집(남은 기업만) — 완료 기업을 즉시 스트리밍.
+      companies = await tracker.run('collect', () =>
+        this.info.collectContacts(companies, ctx('collect', sink.company))
       )
       tracker.done('collect', `${companies.length}곳 정보 수집`)
       throwIfAborted(signal)
 
-      // 5. 제안 문장 생성(최종 남은 기업만).
-      companies = await tracker.run('proposal', (report) =>
-        this.proposal.generate(companies, report, signal)
+      // 5. 제안 문장 생성(최종 남은 기업만) — 완료 기업을 즉시 스트리밍.
+      companies = await tracker.run('proposal', () =>
+        this.proposal.generate(companies, ctx('proposal', sink.company))
       )
       tracker.done('proposal', `${companies.length}곳 제안 문장 생성`)
 
@@ -113,7 +123,7 @@ class StageTracker {
   private readonly map = new Map<PipelineStage, StageProgress>()
   private current: PipelineStage | null = null
 
-  constructor(private readonly emit: EmitProgress) {
+  constructor(private readonly emit: (p: StageProgress) => void) {
     for (const stage of this.order) this.map.set(stage, { stage, status: 'pending' })
   }
 
@@ -123,13 +133,23 @@ class StageTracker {
     this.emit(next)
   }
 
-  /** 단계를 running으로 표시하고 작업을 실행. report 콜백으로 세부 진행 전달. */
-  async run<T>(stage: PipelineStage, work: (report: ProgressReporter) => Promise<T>): Promise<T> {
+  /** 해당 단계에 대한 구조화 진행 보고 콜백. */
+  reporter(stage: PipelineStage): ProgressReporter {
+    return (update) => this.set(stage, { status: 'running', ...update })
+  }
+
+  /** 단계를 running으로 표시하고 작업을 실행. */
+  async run<T>(stage: PipelineStage, work: () => Promise<T>): Promise<T> {
     this.current = stage
-    this.set(stage, { status: 'running', message: undefined, fraction: undefined })
-    const report: ProgressReporter = (message, fraction) =>
-      this.set(stage, { status: 'running', message, fraction })
-    return work(report)
+    this.set(stage, {
+      status: 'running',
+      message: undefined,
+      fraction: undefined,
+      done: undefined,
+      total: undefined,
+      failed: undefined
+    })
+    return work()
   }
 
   done(stage: PipelineStage, message?: string, removed?: number): void {

@@ -1,7 +1,8 @@
 import type { Company } from '../../shared/types'
 import { mapWithConcurrency, throwIfAborted } from '../concurrency'
 import type { AnthropicService, OutputTool } from './anthropic'
-import type { InfoCollectorService, ProgressReporter } from './types'
+import { addIssue, classifyFailure, isAbort } from './failures'
+import type { InfoCollectorService, StageContext } from './types'
 
 // 기업별 정보 보강. web_search로 한 곳씩 조회하되 동시성 제한으로 병렬 처리한다.
 // - resolveBizNumbers: 사업자등록번호만 (엄격 법인 필터 직전, 번호 없는 기업 대상)
@@ -58,16 +59,13 @@ const CONTACT_TOOL: OutputTool = {
 export class AnthropicInfoCollector implements InfoCollectorService {
   constructor(private readonly ai: AnthropicService) {}
 
-  async resolveBizNumbers(
-    companies: Company[],
-    report: ProgressReporter,
-    signal?: AbortSignal
-  ): Promise<Company[]> {
+  async resolveBizNumbers(companies: Company[], ctx: StageContext): Promise<Company[]> {
     const targets = companies.filter((c) => !c.bizNumber)
     if (targets.length === 0) return companies
 
     const resolved = new Map<string, string>()
     let done = 0
+    let failed = 0
     await mapWithConcurrency(
       targets,
       CONCURRENCY,
@@ -76,41 +74,44 @@ export class AnthropicInfoCollector implements InfoCollectorService {
           const user = `기업명: "${company.name}"${company.homepage ? `\n홈페이지: ${company.homepage}` : ''}
 
 이 한국 법인의 사업자등록번호를 찾아 record_biz_number 도구로 기록하세요.`
-          const r = await this.ai.searchStructured<BizNumberResult>(
-            BIZ_SYSTEM,
-            user,
-            BIZ_TOOL,
-            1500,
-            { signal }
-          )
+          const r = await this.ai.searchStructured<BizNumberResult>(BIZ_SYSTEM, user, BIZ_TOOL, 1500, {
+            signal: ctx.signal
+          })
           const value = r.bizNumber ? String(r.bizNumber).trim() : ''
           if (value && value.toLowerCase() !== 'null') resolved.set(company.id, value)
+          else failed += 1 // 번호 확인 불가 → 이후 corpFilter에서 제거됨
         } catch (err) {
-          throwIfAborted(signal)
+          if (isAbort(err)) throw err
+          throwIfAborted(ctx.signal)
+          failed += 1
           console.error(`번호 확인 실패(${company.name}):`, err)
         }
       },
       {
-        signal,
+        signal: ctx.signal,
         onSettled: () =>
-          report(`사업자등록번호 확인 ${++done}/${targets.length}`, done / targets.length)
+          ctx.report({
+            message: `사업자등록번호 확인 ${++done}/${targets.length}`,
+            fraction: done / targets.length,
+            done,
+            total: targets.length,
+            failed
+          })
       }
     )
 
     return companies.map((c) => (resolved.has(c.id) ? { ...c, bizNumber: resolved.get(c.id)! } : c))
   }
 
-  async collectContacts(
-    companies: Company[],
-    report: ProgressReporter,
-    signal?: AbortSignal
-  ): Promise<Company[]> {
+  async collectContacts(companies: Company[], ctx: StageContext): Promise<Company[]> {
     if (companies.length === 0) return companies
     let done = 0
+    let failed = 0
     return mapWithConcurrency(
       companies,
       CONCURRENCY,
-      async (company) => {
+      async (company): Promise<Company> => {
+        let result: Company
         try {
           const user = `기업명: "${company.name}"${company.homepage ? `\n알려진 홈페이지: ${company.homepage}` : ''}
 
@@ -120,9 +121,9 @@ export class AnthropicInfoCollector implements InfoCollectorService {
             user,
             CONTACT_TOOL,
             2000,
-            { signal }
+            { signal: ctx.signal }
           )
-          return {
+          result = {
             ...company,
             homepage: clean(r.homepage) ?? company.homepage,
             address: clean(r.address),
@@ -130,14 +131,26 @@ export class AnthropicInfoCollector implements InfoCollectorService {
             email: clean(r.email)
           }
         } catch (err) {
-          throwIfAborted(signal)
+          if (isAbort(err)) throw err
+          throwIfAborted(ctx.signal)
+          failed += 1
           console.error(`정보 수집 실패(${company.name}):`, err)
-          return company
+          // 호출 자체 실패 → 부분 실패로 기록(연락처가 단순히 없는 것과 구분).
+          result = addIssue(company, 'collect', classifyFailure(err))
         }
+        ctx.onCompany?.(result)
+        return result
       },
       {
-        signal,
-        onSettled: () => report(`정보 수집 ${++done}/${companies.length}`, done / companies.length)
+        signal: ctx.signal,
+        onSettled: () =>
+          ctx.report({
+            message: `정보 수집 ${++done}/${companies.length}`,
+            fraction: done / companies.length,
+            done,
+            total: companies.length,
+            failed
+          })
       }
     )
   }

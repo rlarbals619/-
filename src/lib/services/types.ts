@@ -5,8 +5,25 @@
 
 import type { Company } from '../../shared/types'
 
-/** 단계별 진행 상황을 UI로 흘려보내는 콜백. */
-export type ProgressReporter = (message: string, fraction?: number) => void
+/** 단계별 진행 상황 업데이트(구조화). */
+export interface ProgressUpdate {
+  message?: string
+  fraction?: number
+  done?: number
+  total?: number
+  failed?: number
+}
+
+/** 진행 상황을 UI로 흘려보내는 콜백. */
+export type ProgressReporter = (update: ProgressUpdate) => void
+
+/** 단계 실행에 필요한 컨텍스트(진행 보고 + 취소 + 완료 기업 스트리밍). */
+export interface StageContext {
+  report: ProgressReporter
+  signal?: AbortSignal
+  /** 기업 단위 단계(collect/proposal)에서 완료되는 기업을 즉시 스트리밍. */
+  onCompany?: (company: Company) => void
+}
 
 /** 업로드된 중복 필터 파일(브라우저 → 서버로 전달된 버퍼). */
 export interface DedupeInput {
@@ -17,28 +34,15 @@ export interface DedupeInput {
 
 /** 1단계: 산업군 → 기업 후보 발굴. */
 export interface CompanySearchService {
-  search(
-    industry: string,
-    maxCompanies: number,
-    report: ProgressReporter,
-    signal?: AbortSignal
-  ): Promise<Company[]>
+  search(industry: string, maxCompanies: number, ctx: StageContext): Promise<Company[]>
 }
 
 /** 정보 수집 서비스. 번호 해석(필터 직전)과 연락처 수집(dedupe 이후)을 분리. */
 export interface InfoCollectorService {
   /** 2단계 직전: 사업자등록번호가 없는 기업만 대상으로 번호를 보강(엄격 필터 생존율 개선). */
-  resolveBizNumbers(
-    companies: Company[],
-    report: ProgressReporter,
-    signal?: AbortSignal
-  ): Promise<Company[]>
+  resolveBizNumbers(companies: Company[], ctx: StageContext): Promise<Company[]>
   /** 4단계: 남은 기업의 홈페이지·주소·전화·이메일을 보강. */
-  collectContacts(
-    companies: Company[],
-    report: ProgressReporter,
-    signal?: AbortSignal
-  ): Promise<Company[]>
+  collectContacts(companies: Company[], ctx: StageContext): Promise<Company[]>
 }
 
 /** 3단계: 업로드 파일 기반 기존 후원처 제거. */
@@ -49,11 +53,7 @@ export interface DedupeService {
 
 /** 5단계: 기업별 맞춤 제안 문단 생성. */
 export interface ProposalService {
-  generate(
-    companies: Company[],
-    report: ProgressReporter,
-    signal?: AbortSignal
-  ): Promise<Company[]>
+  generate(companies: Company[], ctx: StageContext): Promise<Company[]>
 }
 
 /** 6단계: 표를 xlsx/csv 버퍼로 내보내기(라우트가 다운로드 응답으로 전송). */

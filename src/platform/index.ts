@@ -3,7 +3,13 @@
 // 컴포넌트는 fetch를 직접 부르지 않고 이 모듈의 함수를 호출한다. 전송 방식(스트리밍,
 // 멀티파트, 다운로드)이 바뀌어도 이 파일만 고치면 되도록 경계를 유지한다.
 
-import type { AppSettings, ExportRequest, PipelineResult, StageProgress } from '@shared/types'
+import type {
+  AppSettings,
+  Company,
+  ExportRequest,
+  PipelineResult,
+  StageProgress
+} from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
 
 /** 파이프라인 실행 입력(브라우저 File 포함). */
@@ -14,18 +20,25 @@ export interface PipelineInput {
   dedupeFile?: File | null
 }
 
+/** 스트리밍 중 호출되는 핸들러(진행 상황 + 완료 기업 실시간 수신). */
+export interface PipelineHandlers {
+  onProgress: (p: StageProgress) => void
+  onCompany: (c: Company) => void
+}
+
 type StreamLine =
   | { type: 'progress'; progress: StageProgress }
-  | { type: 'result'; companies: PipelineResult['companies']; stages: StageProgress[] }
+  | { type: 'company'; company: Company }
+  | { type: 'result'; companies: Company[]; stages: StageProgress[] }
   | { type: 'error'; message: string }
 
 /**
  * 파이프라인 실행. POST /api/pipeline (multipart) 응답을 NDJSON 스트림으로 읽어
- * 진행 이벤트마다 onProgress를 호출하고, 최종 결과를 반환한다.
+ * 진행 이벤트·완료 기업마다 핸들러를 호출하고, 최종 결과를 반환한다.
  */
 export async function runPipeline(
   input: PipelineInput,
-  onProgress: (p: StageProgress) => void,
+  handlers: PipelineHandlers,
   signal?: AbortSignal
 ): Promise<PipelineResult> {
   const form = new FormData()
@@ -50,7 +63,8 @@ export async function runPipeline(
     const trimmed = line.trim()
     if (!trimmed) return
     const msg = JSON.parse(trimmed) as StreamLine
-    if (msg.type === 'progress') onProgress(msg.progress)
+    if (msg.type === 'progress') handlers.onProgress(msg.progress)
+    else if (msg.type === 'company') handlers.onCompany(msg.company)
     else if (msg.type === 'result') result = { companies: msg.companies, stages: msg.stages }
     else if (msg.type === 'error') errorMessage = msg.message
   }

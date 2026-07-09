@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs'
 import type { Company } from '../../shared/types'
 import { formatBizNumber } from '../../shared/bizNumber'
 import { buildEmail } from '../../shared/emailTemplate'
+import { STATUS_LABEL, companyStatus, issueSummary } from '../../shared/companyStatus'
 import type { ExportService } from './types'
 
 // 표를 xlsx/csv로 내보낸다. "정보 없음" 셀은 색상으로 구분(xlsx만).
@@ -21,6 +22,8 @@ interface Column {
 
 function columns(includeEmails: boolean): Column[] {
   const base: Column[] = [
+    { header: '상태', width: 10, value: (c) => STATUS_LABEL[companyStatus(c)] },
+    { header: '실패 사유', width: 22, value: (c) => issueSummary(c) || '' },
     { header: '기업명', width: 24, value: (c) => c.name },
     { header: '사업자등록번호', width: 18, value: (c) => (c.bizNumber ? formatBizNumber(c.bizNumber) : null) },
     { header: '홈페이지', width: 32, value: (c) => c.homepage },

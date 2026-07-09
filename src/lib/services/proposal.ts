@@ -2,7 +2,8 @@ import type { Company } from '../../shared/types'
 import { closingSentence, hasValidClosing, warmFallbackParagraph } from '../../shared/emailTemplate'
 import { mapWithConcurrency, throwIfAborted } from '../concurrency'
 import type { AnthropicService } from './anthropic'
-import type { ProgressReporter, ProposalService } from './types'
+import { addIssue, isAbort } from './failures'
+import type { ProposalService, StageContext } from './types'
 
 // 최종 후보 기업별 맞춤 제안 문단 생성(가장 무거운 단계 → 파이프라인 마지막 직전).
 
@@ -19,26 +20,41 @@ const SYSTEM = `당신은 초록우산어린이재단 사회공헌협력본부�
 export class AnthropicProposalService implements ProposalService {
   constructor(private readonly ai: AnthropicService) {}
 
-  async generate(
-    companies: Company[],
-    report: ProgressReporter,
-    signal?: AbortSignal
-  ): Promise<Company[]> {
+  async generate(companies: Company[], ctx: StageContext): Promise<Company[]> {
     if (companies.length === 0) return companies
     let done = 0
+    let failed = 0
     return mapWithConcurrency(
       companies,
       CONCURRENCY,
-      async (company) => ({ ...company, proposal: await this.one(company, signal) }),
+      async (company): Promise<Company> => {
+        const { proposal, failedFallback } = await this.one(company, ctx.signal)
+        let result: Company = { ...company, proposal }
+        if (failedFallback) {
+          failed += 1
+          result = addIssue(result, 'proposal', '제안 생성 실패(기본 문안 사용)')
+        }
+        ctx.onCompany?.(result)
+        return result
+      },
       {
-        signal,
+        signal: ctx.signal,
         onSettled: () =>
-          report(`제안 문장 생성 ${++done}/${companies.length}`, done / companies.length)
+          ctx.report({
+            message: `제안 문장 생성 ${++done}/${companies.length}`,
+            fraction: done / companies.length,
+            done,
+            total: companies.length,
+            failed
+          })
       }
     )
   }
 
-  private async one(company: Company, signal?: AbortSignal): Promise<string> {
+  private async one(
+    company: Company,
+    signal?: AbortSignal
+  ): Promise<{ proposal: string; failedFallback: boolean }> {
     const closing = closingSentence(company.name)
     const context = [
       `기업명: ${company.name}`,
@@ -59,17 +75,19 @@ export class AnthropicProposalService implements ProposalService {
     try {
       const text = await this.ai.generateText(SYSTEM, user, 600, { signal })
       const cleaned = text.trim()
-      if (!cleaned) return warmFallbackParagraph(company.name)
-      // 마무리 문장이 규정과 다르면 보정.
+      if (!cleaned) return { proposal: warmFallbackParagraph(company.name), failedFallback: true }
+      // 마무리 문장이 규정과 다르면 보정(실패 아님).
       if (!hasValidClosing(cleaned, company.name)) {
         const withoutTrailing = cleaned.replace(/[.\s]*$/, '')
-        return `${withoutTrailing} ${closing}`.replace(/\s+/g, ' ').trim()
+        const fixed = `${withoutTrailing} ${closing}`.replace(/\s+/g, ' ').trim()
+        return { proposal: fixed, failedFallback: false }
       }
-      return cleaned
+      return { proposal: cleaned, failedFallback: false }
     } catch (err) {
+      if (isAbort(err)) throw err
       throwIfAborted(signal)
       console.error(`제안 문장 생성 실패(${company.name}):`, err)
-      return warmFallbackParagraph(company.name)
+      return { proposal: warmFallbackParagraph(company.name), failedFallback: true }
     }
   }
 }

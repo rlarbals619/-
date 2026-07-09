@@ -22,6 +22,16 @@ export interface Company {
   summary: string | null
   /** 5단계에서 생성된 맞춤 제안 문단. 아직이면 null. */
   proposal: string | null
+  /** 처리 중 발생한 부분 실패 목록(번호 확인 불가, API 에러 등). 없으면 생략. */
+  issues?: CompanyIssue[]
+  /** 취소 시점에 아직 완료되지 않은 항목(제안 미생성 등). */
+  canceled?: boolean
+}
+
+/** 기업별 처리 실패 항목. */
+export interface CompanyIssue {
+  stage: PipelineStage
+  reason: string
 }
 
 /** 파이프라인 단계 식별자. */
@@ -45,6 +55,12 @@ export interface StageProgress {
   removed?: number
   /** 진행률 0~1 (정보수집·제안생성처럼 기업 단위로 도는 단계). */
   fraction?: number
+  /** 완료한 기업 수 (기업 단위 단계의 카운터 표시·부드러운 증가용). */
+  done?: number
+  /** 전체 대상 기업 수. */
+  total?: number
+  /** 실패한 기업 수. */
+  failed?: number
 }
 
 /**

@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import type { PipelineConfig, StageProgress } from '@shared/types'
+import type { Company, PipelineConfig, StageProgress } from '@shared/types'
 import { Pipeline } from '@/lib/pipeline'
 import { AnthropicService } from '@/lib/services/anthropic'
 import { AnthropicCompanySearch } from '@/lib/services/companySearch'
@@ -17,7 +17,8 @@ export const maxDuration = 300
 
 type StreamLine =
   | { type: 'progress'; progress: StageProgress }
-  | { type: 'result'; companies: unknown; stages: StageProgress[] }
+  | { type: 'company'; company: Company }
+  | { type: 'result'; companies: Company[]; stages: StageProgress[] }
   | { type: 'error'; message: string }
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -60,7 +61,10 @@ export async function POST(req: NextRequest): Promise<Response> {
       try {
         const result = await pipeline.run(
           config,
-          (progress) => write({ type: 'progress', progress }),
+          {
+            progress: (progress) => write({ type: 'progress', progress }),
+            company: (company) => write({ type: 'company', company })
+          },
           dedupeFile,
           req.signal
         )
