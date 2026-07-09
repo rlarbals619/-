@@ -19,12 +19,15 @@ export async function POST(req: NextRequest): Promise<Response> {
     return Response.json({ error: '잘못된 요청 본문입니다.' }, { status: 400 })
   }
 
-  const { companies, format, includeEmails } = body
+  const { companies, format, includeEmails, emailTemplate, proposalsSection } = body
   if (!Array.isArray(companies) || (format !== 'xlsx' && format !== 'csv')) {
     return Response.json({ error: '내보내기 파라미터가 올바르지 않습니다.' }, { status: 400 })
   }
 
-  const buffer = await new ExcelExportService().export(companies, format, !!includeEmails)
+  const buffer = await new ExcelExportService().export(companies, format, !!includeEmails, {
+    template: emailTemplate,
+    proposalsSection
+  })
   const filename = `chorogusan_prospects.${format}`
 
   return new Response(new Uint8Array(buffer), {

@@ -127,6 +127,62 @@ export class AnthropicService {
     )
     return AnthropicService.joinText(message.content).trim()
   }
+
+  /**
+   * 첨부 문서(PDF·이미지)를 읽어 구조화 결과를 추출한다. 출력 도구를 강제(tool_choice)해
+   * 항상 구조화 결과를 받는다. web_search 없음.
+   */
+  async extractFromDocuments<T>(
+    system: string,
+    instruction: string,
+    documents: DocumentInput[],
+    outputTool: OutputTool,
+    maxTokens = 2048,
+    opts: CallOpts = {}
+  ): Promise<T> {
+    const content: Anthropic.Messages.ContentBlockParam[] = documents.map((d) =>
+      d.mediaType === 'application/pdf'
+        ? {
+            type: 'document' as const,
+            source: { type: 'base64' as const, media_type: 'application/pdf' as const, data: d.base64 }
+          }
+        : {
+            type: 'image' as const,
+            source: { type: 'base64' as const, media_type: d.mediaType, data: d.base64 }
+          }
+    )
+    content.push({ type: 'text', text: instruction })
+
+    const message = await this.client().messages.create(
+      {
+        model: this.model(),
+        max_tokens: maxTokens,
+        system,
+        tools: [
+          {
+            name: outputTool.name,
+            description: outputTool.description,
+            input_schema: outputTool.input_schema
+          }
+        ],
+        tool_choice: { type: 'tool', name: outputTool.name },
+        messages: [{ role: 'user', content }]
+      },
+      { signal: opts.signal }
+    )
+    const toolUse = message.content.find(
+      (b): b is Anthropic.Messages.ToolUseBlock =>
+        b.type === 'tool_use' && b.name === outputTool.name
+    )
+    if (!toolUse) throw new Error('문서에서 구조화 결과를 추출하지 못했습니다.')
+    return toolUse.input as T
+  }
+}
+
+/** 문서 입력(base64). PDF는 document, 그 외 이미지 타입은 image 블록으로 전송. */
+export interface DocumentInput {
+  base64: string
+  mediaType: 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
 }
 
 /** 텍스트에서 첫 번째 JSON 객체/배열을 관대하게 추출·파싱. */

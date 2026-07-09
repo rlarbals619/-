@@ -1,6 +1,6 @@
-// Shared types used by both the Electron main process and the React renderer.
-// Pure TypeScript — no runtime dependencies — so it compiles under both
-// tsconfig.node (main/preload) and tsconfig.web (renderer).
+// 서버·클라이언트 공용 도메인 타입. 순수 TypeScript.
+
+import { DEFAULT_EMAIL_TEMPLATE, DEFAULT_PROPOSALS_SECTION } from './emailTemplate'
 
 /** A single company row as it flows through the pipeline. */
 export interface Company {
@@ -90,11 +90,17 @@ export interface AppSettings {
   model: string
   /** 발굴 기업 수 상한 기본값. */
   maxCompanies: number
+  /** 메일 전문 틀(플레이스홀더 포함). */
+  emailTemplate: string
+  /** 제안서 소개 블록(파일 업로드로 자동 생성하거나 직접 편집). */
+  proposalsSection: string
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   model: 'claude-sonnet-5',
-  maxCompanies: 15
+  maxCompanies: 15,
+  emailTemplate: DEFAULT_EMAIL_TEMPLATE,
+  proposalsSection: DEFAULT_PROPOSALS_SECTION
 }
 
 /** 내보내기 형식. */
@@ -105,4 +111,8 @@ export interface ExportRequest {
   format: ExportFormat
   /** 메일 전문 컬럼 포함 여부. */
   includeEmails: boolean
+  /** 메일 전문 틀(없으면 기본값). */
+  emailTemplate?: string
+  /** 제안서 소개 블록(없으면 기본값). */
+  proposalsSection?: string
 }

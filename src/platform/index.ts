@@ -116,6 +116,23 @@ function parseFilename(disposition: string | null): string | null {
   return match ? match[1] : null
 }
 
+/** 제안서 소개 자동 생성 결과. */
+export interface ProposalsSummary {
+  proposalsSection: string
+  items: { title: string; summary: string }[]
+}
+
+/** 제안서 파일(PDF·이미지)을 업로드해 메일의 "제안서 소개" 블록을 자동 생성한다. */
+export async function summarizeProposals(files: File[], model?: string): Promise<ProposalsSummary> {
+  const form = new FormData()
+  for (const f of files) form.append('files', f)
+  if (model) form.set('model', model)
+  const res = await fetch('/api/proposals/summarize', { method: 'POST', body: form })
+  const data = (await res.json().catch(() => ({}))) as ProposalsSummary & { error?: string }
+  if (!res.ok) throw new Error(data.error || `제안서 요약 실패 (${res.status})`)
+  return data
+}
+
 /* ── 클라이언트 설정(localStorage) ─────────────────────────── */
 // API 키는 서버 env가 관리하므로 여기엔 없다. 모델·발굴 수만 로컬에 보관한다.
 

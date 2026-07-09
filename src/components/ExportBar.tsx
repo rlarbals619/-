@@ -6,10 +6,12 @@ import { runExport } from '@/platform'
 
 interface Props {
   companies: Company[]
+  emailTemplate?: string
+  proposalsSection?: string
 }
 
 // 결과 내보내기 — xlsx / csv + 메일 전문 포함 옵션.
-export function ExportBar({ companies }: Props): JSX.Element {
+export function ExportBar({ companies, emailTemplate, proposalsSection }: Props): JSX.Element {
   const [includeEmails, setIncludeEmails] = useState(true)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -19,7 +21,13 @@ export function ExportBar({ companies }: Props): JSX.Element {
     setBusy(true)
     setMsg(null)
     try {
-      const filename = await runExport({ companies, format, includeEmails })
+      const filename = await runExport({
+        companies,
+        format,
+        includeEmails,
+        emailTemplate,
+        proposalsSection
+      })
       setMsg(`다운로드: ${filename}`)
     } catch (err) {
       setMsg(err instanceof Error ? err.message : String(err))

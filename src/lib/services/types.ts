@@ -61,6 +61,7 @@ export interface ExportService {
   export(
     companies: Company[],
     format: 'xlsx' | 'csv',
-    includeEmails: boolean
+    includeEmails: boolean,
+    email?: import('../../shared/emailTemplate').EmailOptions
   ): Promise<Buffer>
 }

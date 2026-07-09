@@ -138,7 +138,13 @@ export default function Page(): JSX.Element {
 
           {started && <PipelineStepper stages={stages} />}
 
-          {companies.length > 0 && <ExportBar companies={companies} />}
+          {companies.length > 0 && (
+            <ExportBar
+              companies={companies}
+              emailTemplate={settings.emailTemplate}
+              proposalsSection={settings.proposalsSection}
+            />
+          )}
 
           {started && (
             <CompanyTable
@@ -155,7 +161,12 @@ export default function Page(): JSX.Element {
           )}
         </main>
 
-        <DetailPanel company={selected} onClose={() => setSelected(null)} />
+        <DetailPanel
+          company={selected}
+          onClose={() => setSelected(null)}
+          emailTemplate={settings.emailTemplate}
+          proposalsSection={settings.proposalsSection}
+        />
       </div>
 
       <SettingsModal

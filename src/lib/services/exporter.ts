@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs'
 import type { Company } from '../../shared/types'
 import { formatBizNumber } from '../../shared/bizNumber'
-import { buildEmail } from '../../shared/emailTemplate'
+import { buildEmail, type EmailOptions } from '../../shared/emailTemplate'
 import { STATUS_LABEL, companyStatus, issueSummary } from '../../shared/companyStatus'
 import type { ExportService } from './types'
 
@@ -20,7 +20,7 @@ interface Column {
   value: (c: Company) => string | null
 }
 
-function columns(includeEmails: boolean): Column[] {
+function columns(includeEmails: boolean, email: EmailOptions): Column[] {
   const base: Column[] = [
     { header: '상태', width: 10, value: (c) => STATUS_LABEL[companyStatus(c)] },
     { header: '실패 사유', width: 22, value: (c) => issueSummary(c) || '' },
@@ -36,7 +36,7 @@ function columns(includeEmails: boolean): Column[] {
     base.push({
       header: '메일 전문',
       width: 80,
-      value: (c) => buildEmail(c.name, c.proposal ?? '')
+      value: (c) => buildEmail(c.name, c.proposal ?? '', email)
     })
   }
   return base
@@ -46,9 +46,10 @@ export class ExcelExportService implements ExportService {
   async export(
     companies: Company[],
     format: 'xlsx' | 'csv',
-    includeEmails: boolean
+    includeEmails: boolean,
+    email: EmailOptions = {}
   ): Promise<Buffer> {
-    const cols = columns(includeEmails)
+    const cols = columns(includeEmails, email)
     const workbook = new ExcelJS.Workbook()
     workbook.creator = '초록우산 기업 리서치 툴'
     workbook.created = new Date()

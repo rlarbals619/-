@@ -10,11 +10,13 @@ import { STAGE_LABEL } from '@/lib/stages'
 interface Props {
   company: Company | null
   onClose: () => void
+  emailTemplate?: string
+  proposalsSection?: string
 }
 
 // 행 선택 시 상세 정보 + 제안 문단 + 메일 전문을 보여주는 패널.
 // 데스크톱(lg↑)에서는 오른쪽 고정 사이드바, 모바일에서는 오버레이 드로어.
-export function DetailPanel({ company, onClose }: Props): JSX.Element | null {
+export function DetailPanel({ company, onClose, emailTemplate, proposalsSection }: Props): JSX.Element | null {
   const closeRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -28,7 +30,10 @@ export function DetailPanel({ company, onClose }: Props): JSX.Element | null {
   }, [company, onClose])
 
   if (!company) return null
-  const email = buildEmail(company.name, company.proposal ?? '')
+  const email = buildEmail(company.name, company.proposal ?? '', {
+    template: emailTemplate,
+    proposalsSection
+  })
 
   return (
     <div className="fixed inset-0 z-40 lg:static lg:z-auto lg:h-full lg:w-[420px] lg:shrink-0">
