@@ -13,6 +13,10 @@ import type { DedupeInput } from '@/lib/services/types'
 // 출력: NDJSON 스트림 — 진행 이벤트를 한 줄씩 흘려보내고 마지막에 결과 한 줄.
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+// 함수 실행시간 상한. Vercel Fluid Compute(신규 프로젝트 기본값): Hobby 최대 300초,
+// Pro/Enterprise 800초 → 이 값(300)이 유효. 단, Fluid를 끈 레거시 Hobby는 60초가
+// 상한이라 배포가 거부되므로 그 경우 60으로 낮추고 설정에서 maxCompanies를 줄여야 한다.
+// 초과 시 504(FUNCTION_INVOCATION_TIMEOUT). 자세한 안내는 README "배포 (Vercel)" 참고.
 export const maxDuration = 300
 
 type StreamLine =

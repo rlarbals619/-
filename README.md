@@ -47,12 +47,15 @@ src/
   shared/                   types · bizNumber · emailTemplate (순수)
 ```
 
-## 사용법
+## 로컬 실행
 
-1. `.env.local`을 만들고 API 키를 넣습니다(`.env.local.example` 참고):
+1. `.env.example`을 복사해 `.env.local`을 만들고 키를 넣습니다:
+   ```bash
+   cp .env.example .env.local
    ```
-   ANTHROPIC_API_KEY=sk-ant-...
-   ANTHROPIC_MODEL=claude-sonnet-5
+   ```
+   ANTHROPIC_API_KEY=sk-ant-...      # 필수
+   ANTHROPIC_MODEL=claude-sonnet-5   # 선택(미설정 시 기본값)
    ```
 2. `npm install` 후 `npm run dev` → http://localhost:3000
 3. 산업군 키워드(예: "건강기능식품")를 입력하고 검색을 시작합니다. 스텝퍼가 실시간으로 갱신됩니다.
@@ -68,13 +71,65 @@ npm run dev        # 개발 서버 (http://localhost:3000)
 npm run build      # 프로덕션 빌드
 npm run start      # 프로덕션 서버 실행
 npm run typecheck  # 타입 검사
+npm run test       # 유닛 테스트 (vitest)
 ```
+
+## 배포 (Vercel)
+
+개발 지식이 없어도 아래 순서대로 하면 배포됩니다. (Vercel 무료 Hobby 플랜으로도 가능)
+
+1. **GitHub 리포지토리를 Vercel에 연결**
+   - [vercel.com](https://vercel.com)에 GitHub 계정으로 로그인 → **Add New… → Project**
+   - 이 리포지토리를 선택하고 **Import**. 프레임워크는 자동으로 **Next.js**로 감지됩니다
+     (별도 빌드 설정·`vercel.json` 불필요).
+2. **환경변수 등록** (배포 전, Import 화면의 *Environment Variables* 또는
+   Project → **Settings → Environment Variables**)
+   - Name: `ANTHROPIC_API_KEY`, Value: 발급받은 키(`sk-ant-...`)
+   - (선택) `ANTHROPIC_MODEL` = `claude-sonnet-5`
+   - 스코프는 **Production / Preview / Development** 모두 체크
+   - 키는 **서버에서만** 쓰이며 브라우저·소스에 노출되지 않습니다. (`.env.local`은 커밋 금지 — 이미 `.gitignore` 처리됨)
+3. **Deploy** 버튼 클릭 → 잠시 후 배포 URL(`https://<프로젝트>.vercel.app`)이 생성됩니다.
+4. 배포 URL에 접속해 산업군 키워드로 실제 동작을 확인합니다.
+
+### ⚠️ 함수 실행시간 제한 (꼭 확인)
+
+파이프라인은 기업 수만큼 web_search를 돌려 **수십 초~수 분**이 걸릴 수 있습니다. Vercel
+서버리스 함수에는 실행시간 상한이 있습니다.
+
+| 구성 | 최대 실행시간 |
+| --- | --- |
+| **Fluid Compute** (신규 프로젝트 기본값) — Hobby | **300초** |
+| **Fluid Compute** — Pro / Enterprise | 800초 |
+| 레거시(비Fluid) — Hobby | 60초 |
+
+- 이 앱은 `src/app/api/pipeline/route.ts`에 `maxDuration = 300`을 지정합니다 →
+  **Fluid Compute가 켜진 Hobby/Pro에서 그대로 동작**합니다. Fluid Compute는 신규
+  프로젝트 기본값이며 Project → Settings → **Functions**에서 확인할 수 있습니다.
+- 만약 배포가 `maxDuration` 관련 오류로 실패하면 프로젝트가 레거시(60초)입니다 →
+  Fluid Compute를 켜거나, 위 파일의 값을 `60`으로 낮추세요.
+- 실행 중 **504(FUNCTION_INVOCATION_TIMEOUT)**가 나면 기업 수가 너무 많은 것입니다 →
+  앱 우측 상단 **⚙ 설정**에서 **최대 발굴 기업 수**를 줄이세요(예: 5~8). 실행 중 **취소**
+  버튼을 눌러도 그때까지 완료된 결과는 유지됩니다.
+
+## 배포 전 실제 키 스모크테스트 (체크리스트)
+
+배포 전에 실제 API 키로 로컬에서 한 번 돌려보길 권장합니다.
+
+1. `cp .env.example .env.local` 후 `ANTHROPIC_API_KEY`에 실제 키 입력
+2. `npm run dev` → http://localhost:3000
+3. **⚙ 설정**에서 최대 발굴 기업 수를 **5** 정도로(비용·시간 최소화)
+4. 산업군 키워드(예: "건강기능식품") 입력 → 검색 시작
+5. 아래를 확인:
+   - [ ] 스텝퍼 카운터가 실시간으로 오른다 (예: "정보 수집 3/5")
+   - [ ] **취소** 버튼을 누르면 즉시 멈추고, 그때까지 완료된 기업은 결과에 남는다
+   - [ ] 실패가 있으면 진행률에 "(실패 N)", 결과 표에 **부분 실패** 배지 + 사유가 보인다
+   - [ ] 상단 **전체 / 성공 / 이슈·취소** 필터가 동작한다
+   - [ ] **엑셀/CSV 내보내기**가 다운로드된다(상태·실패 사유 열 포함)
 
 ## 참고
 
 - API 키는 **서버 환경변수**로만 관리되며 브라우저에 노출되지 않습니다.
 - 한국 기업정보 공개 API는 제한적이라, 기업 발굴·정보 수집은 Claude의 `web_search`
   서버 도구를 사용합니다. 유료 DB의 무단 크롤링은 하지 않습니다.
-- 파이프라인은 기업 수만큼 web_search를 돌려 수 분이 걸릴 수 있습니다. 서버리스(예:
-  Vercel)에 배포할 경우 함수 실행시간 제한(`maxDuration`)에 유의하세요. 라우트에는
-  `maxDuration = 300`을 지정해 두었습니다.
+- 등록 업종과 실제 사업이 다를 수 있어 홈페이지 기준으로 재확인하며, 사업자등록번호를
+  확인하지 못한 기업은 법인 필터 단계에서 제외됩니다.
