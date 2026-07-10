@@ -17,9 +17,9 @@ interface Props {
 }
 
 const MODELS = [
-  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5 (권장 · 빠름)' },
-  { id: 'claude-opus-4-8', label: 'Claude Opus 4.8 (고품질)' },
-  { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (경제적)' }
+  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (권장 · 무료 티어)' },
+  { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite (가장 빠름·가벼움)' },
+  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (안정적)' }
 ]
 
 // 설정 화면: 모델·발굴 수 + 메일 전문 틀 편집 + 제안서 소개(파일 업로드 자동 생성).
@@ -110,8 +110,8 @@ export function SettingsModal({ open, onClose, onSaved }: Props): JSX.Element | 
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <div className="mb-4 rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-            Anthropic API 키는 서버 환경변수(<code>.env.local</code>의{' '}
-            <code>ANTHROPIC_API_KEY</code>)로 관리됩니다. 브라우저에는 저장되지 않습니다.
+            Google Gemini API 키는 서버 환경변수(<code>.env.local</code>의{' '}
+            <code>GEMINI_API_KEY</code>)로 관리됩니다. 브라우저에는 저장되지 않습니다.
           </div>
 
           <label htmlFor={modelId} className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">

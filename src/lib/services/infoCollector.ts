@@ -1,6 +1,6 @@
 import type { Company } from '../../shared/types'
 import { mapWithConcurrency, throwIfAborted } from '../concurrency'
-import type { AnthropicService, OutputTool } from './anthropic'
+import type { GeminiService, OutputTool } from './gemini'
 import { addIssue, classifyFailure, isAbort } from './failures'
 import type { InfoCollectorService, StageContext } from './types'
 
@@ -56,8 +56,8 @@ const CONTACT_TOOL: OutputTool = {
   }
 }
 
-export class AnthropicInfoCollector implements InfoCollectorService {
-  constructor(private readonly ai: AnthropicService) {}
+export class GeminiInfoCollector implements InfoCollectorService {
+  constructor(private readonly ai: GeminiService) {}
 
   async resolveBizNumbers(companies: Company[], ctx: StageContext): Promise<Company[]> {
     const targets = companies.filter((c) => !c.bizNumber)

@@ -1,7 +1,7 @@
 import type { Company } from '../../shared/types'
 import { closingSentence, hasValidClosing, warmFallbackParagraph } from '../../shared/emailTemplate'
 import { mapWithConcurrency, throwIfAborted } from '../concurrency'
-import type { AnthropicService } from './anthropic'
+import type { GeminiService } from './gemini'
 import { addIssue, isAbort } from './failures'
 import type { ProposalService, StageContext } from './types'
 
@@ -17,8 +17,8 @@ const SYSTEM = `당신은 초록우산어린이재단 사회공헌협력본부�
 - 정보가 부족한 기업은 무난하고 따뜻한 톤으로 작성합니다.
 - 다른 설명 없이 문단 본문만 출력합니다.`
 
-export class AnthropicProposalService implements ProposalService {
-  constructor(private readonly ai: AnthropicService) {}
+export class GeminiProposalService implements ProposalService {
+  constructor(private readonly ai: GeminiService) {}
 
   async generate(companies: Company[], ctx: StageContext): Promise<Company[]> {
     if (companies.length === 0) return companies

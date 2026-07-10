@@ -1,11 +1,11 @@
 import type { NextRequest } from 'next/server'
 import type { Company, PipelineConfig, StageProgress } from '@shared/types'
 import { Pipeline } from '@/lib/pipeline'
-import { AnthropicService } from '@/lib/services/anthropic'
-import { AnthropicCompanySearch } from '@/lib/services/companySearch'
-import { AnthropicInfoCollector } from '@/lib/services/infoCollector'
+import { GeminiService } from '@/lib/services/gemini'
+import { GeminiCompanySearch } from '@/lib/services/companySearch'
+import { GeminiInfoCollector } from '@/lib/services/infoCollector'
 import { FileDedupeService } from '@/lib/services/dedupe'
-import { AnthropicProposalService } from '@/lib/services/proposal'
+import { GeminiProposalService } from '@/lib/services/proposal'
 import type { DedupeInput } from '@/lib/services/types'
 
 // 파이프라인 실행 라우트.
@@ -48,12 +48,12 @@ export async function POST(req: NextRequest): Promise<Response> {
     return Response.json({ error: '산업군 키워드가 비어 있습니다.' }, { status: 400 })
   }
 
-  const ai = new AnthropicService({ model })
+  const ai = new GeminiService({ model })
   const pipeline = new Pipeline(
-    new AnthropicCompanySearch(ai),
-    new AnthropicInfoCollector(ai),
+    new GeminiCompanySearch(ai),
+    new GeminiInfoCollector(ai),
     new FileDedupeService(),
-    new AnthropicProposalService(ai)
+    new GeminiProposalService(ai)
   )
 
   const encoder = new TextEncoder()

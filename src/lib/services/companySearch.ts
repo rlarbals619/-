@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import type { Company } from '../../shared/types'
-import type { AnthropicService, OutputTool } from './anthropic'
+import type { GeminiService, OutputTool } from './gemini'
 import type { CompanySearchService, StageContext } from './types'
 
 interface RawCompany {
@@ -44,8 +44,8 @@ const OUTPUT_TOOL: OutputTool = {
   }
 }
 
-export class AnthropicCompanySearch implements CompanySearchService {
-  constructor(private readonly ai: AnthropicService) {}
+export class GeminiCompanySearch implements CompanySearchService {
+  constructor(private readonly ai: GeminiService) {}
 
   async search(industry: string, maxCompanies: number, ctx: StageContext): Promise<Company[]> {
     ctx.report({ message: `"${industry}" 산업군 기업을 검색하는 중…` })

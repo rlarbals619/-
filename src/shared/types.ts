@@ -73,7 +73,7 @@ export interface PipelineConfig {
   industry: string
   /** 최대 발굴 기업 수 (API 낭비 방지). */
   maxCompanies?: number
-  /** Anthropic 모델 id (없으면 서버 기본값). */
+  /** Gemini 모델 id (없으면 서버 기본값). */
   model?: string
 }
 
@@ -86,7 +86,7 @@ export interface PipelineResult {
 
 /** 앱 설정 (API 키 제외 — 키는 별도 안전 저장). */
 export interface AppSettings {
-  /** Anthropic 모델 id. */
+  /** Gemini 모델 id. */
   model: string
   /** 발굴 기업 수 상한 기본값. */
   maxCompanies: number
@@ -97,7 +97,7 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  model: 'claude-sonnet-5',
+  model: 'gemini-2.5-flash',
   maxCompanies: 15,
   emailTemplate: DEFAULT_EMAIL_TEMPLATE,
   proposalsSection: DEFAULT_PROPOSALS_SECTION

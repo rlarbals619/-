@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest'
 import type { Company } from '@shared/types'
 import { companyStatus, issueSummary } from '@shared/companyStatus'
 import { classifyFailure } from '@/lib/services/failures'
-import { AnthropicInfoCollector } from '@/lib/services/infoCollector'
-import { AnthropicProposalService } from '@/lib/services/proposal'
+import { GeminiInfoCollector } from '@/lib/services/infoCollector'
+import { GeminiProposalService } from '@/lib/services/proposal'
 import { Pipeline } from '@/lib/pipeline'
-import type { AnthropicService } from '@/lib/services/anthropic'
+import type { GeminiService } from '@/lib/services/gemini'
 import type {
   CompanySearchService,
   DedupeService,
@@ -37,7 +37,7 @@ const fakeCollectAi = {
     if (n.includes('정보없음')) return { homepage: null, address: null, phone: null, email: null }
     return { homepage: 'https://ex.co', address: '서울시', phone: '02-1', email: 'a@ex.co' }
   }
-} as unknown as AnthropicService
+} as unknown as GeminiService
 
 // 제안 생성 fake: '제안실패' 포함 시 throw.
 const fakeProposalAi = {
@@ -45,7 +45,7 @@ const fakeProposalAi = {
     if (user.includes('제안실패')) throw new Error('overloaded 529')
     return '좋은 기업입니다.'
   }
-} as unknown as AnthropicService
+} as unknown as GeminiService
 
 describe('실패 분류·상태 헬퍼', () => {
   it('classifyFailure가 에러를 사유로 분류', () => {
@@ -69,7 +69,7 @@ describe('실패 분류·상태 헬퍼', () => {
 
 describe('collectContacts 부분 실패', () => {
   it('일부 실패해도 전체 처리, 이슈 기록, 빈 결과는 실패 아님', async () => {
-    const collector = new AnthropicInfoCollector(fakeCollectAi)
+    const collector = new GeminiInfoCollector(fakeCollectAi)
     const emitted: Company[] = []
     const reports: Array<Record<string, unknown>> = []
     const ctx: StageContext = {
@@ -92,7 +92,7 @@ describe('collectContacts 부분 실패', () => {
   it('취소된 signal이면 AbortError를 던진다', async () => {
     const ac = new AbortController()
     ac.abort()
-    const collector = new AnthropicInfoCollector(fakeCollectAi)
+    const collector = new GeminiInfoCollector(fakeCollectAi)
     let caught: unknown
     try {
       await collector.collectContacts([mk('정상')], { report: () => {}, signal: ac.signal })
@@ -109,8 +109,8 @@ describe('collectContacts 부분 실패', () => {
         e.name = 'AbortError'
         throw e
       }
-    } as unknown as AnthropicService
-    const collector = new AnthropicInfoCollector(abortingAi)
+    } as unknown as GeminiService
+    const collector = new GeminiInfoCollector(abortingAi)
     let caught: unknown
     try {
       await collector.collectContacts([mk('x')], { report: () => {} })
@@ -123,7 +123,7 @@ describe('collectContacts 부분 실패', () => {
 
 describe('proposal 부분 실패', () => {
   it('실패 시 기본 문안 + 이슈, 나머지는 정상', async () => {
-    const svc = new AnthropicProposalService(fakeProposalAi)
+    const svc = new GeminiProposalService(fakeProposalAi)
     const reports: Array<Record<string, unknown>> = []
     const res = await svc.generate([mk('제안정상'), mk('제안실패')], {
       report: (u) => reports.push(u as Record<string, unknown>)
@@ -151,9 +151,9 @@ describe('Pipeline은 혼합 실패에도 멈추지 않는다', () => {
     }
     const pipeline = new Pipeline(
       fakeSearch,
-      new AnthropicInfoCollector(fakeCollectAi),
+      new GeminiInfoCollector(fakeCollectAi),
       fakeDedupe,
-      new AnthropicProposalService(fakeProposalAi)
+      new GeminiProposalService(fakeProposalAi)
     )
     const streamed: Company[] = []
     const res = await pipeline.run(

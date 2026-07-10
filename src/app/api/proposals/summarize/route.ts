@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { AnthropicService, type DocumentInput, type OutputTool } from '@/lib/services/anthropic'
+import { GeminiService, type DocumentInput, type OutputTool } from '@/lib/services/gemini'
 
 // 제안서 첨부(PDF)를 읽어 메일의 "제안서 소개" 블록을 자동 생성한다.
 // 입력: multipart FormData (files[], 선택 model)
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   try {
-    const ai = new AnthropicService({ model })
+    const ai = new GeminiService({ model })
     const instruction = `첨부된 ${documents.length}개의 제안서 문서를 각각 요약해 record_proposals 도구로 반환하세요.`
     const result = await ai.extractFromDocuments<{ items?: ProposalItem[] }>(
       SYSTEM,

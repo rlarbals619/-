@@ -1,6 +1,6 @@
 // 서비스 인터페이스 — 로직 추상화 계층.
 //
-// 서버(Next.js API 라우트)는 이 인터페이스의 Anthropic/Node 구현(아래 파일들)을 주입해
+// 서버(Next.js API 라우트)는 이 인터페이스의 Gemini/Node 구현(아래 파일들)을 주입해
 // 쓴다. 구현을 갈아끼워도 파이프라인·라우트 코드를 손대지 않도록 경계를 유지한다.
 
 import type { Company } from '../../shared/types'
