@@ -55,7 +55,7 @@ src/
    ```
    ```
    GEMINI_API_KEY=AIza...            # 필수 (무료 발급: https://aistudio.google.com/apikey)
-   GEMINI_MODEL=gemini-2.5-flash     # 선택(미설정 시 기본값)
+   GEMINI_MODEL=gemini-flash-latest  # 선택(미설정 시 기본값)
    ```
 2. `npm install` 후 `npm run dev` → http://localhost:3000
 3. 산업군 키워드(예: "건강기능식품")를 입력하고 검색을 시작합니다. 스텝퍼가 실시간으로 갱신됩니다.
@@ -103,7 +103,7 @@ npm run test       # 유닛 테스트 (vitest)
 2. **환경변수 등록** (배포 전, Import 화면의 *Environment Variables* 또는
    Project → **Settings → Environment Variables**)
    - Name: `GEMINI_API_KEY`, Value: 발급받은 키(`AIza...`) — 무료 발급: https://aistudio.google.com/apikey
-   - (선택) `GEMINI_MODEL` = `gemini-2.5-flash`
+   - (선택) `GEMINI_MODEL` = `gemini-flash-latest`
    - 스코프는 **Production / Preview / Development** 모두 체크
    - 키는 **서버에서만** 쓰이며 브라우저·소스에 노출되지 않습니다. (`.env.local`은 커밋 금지 — 이미 `.gitignore` 처리됨)
 3. **Deploy** 버튼 클릭 → 잠시 후 배포 URL(`https://<프로젝트>.vercel.app`)이 생성됩니다.

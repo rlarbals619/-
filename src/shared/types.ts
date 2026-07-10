@@ -97,7 +97,7 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  model: 'gemini-2.5-flash',
+  model: 'gemini-flash-latest',
   maxCompanies: 15,
   emailTemplate: DEFAULT_EMAIL_TEMPLATE,
   proposalsSection: DEFAULT_PROPOSALS_SECTION

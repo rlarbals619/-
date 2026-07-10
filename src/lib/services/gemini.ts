@@ -9,7 +9,7 @@ import { GoogleGenAI, createUserContent, createPartFromBase64, type Part } from 
 // - Google 검색 도구와 responseSchema(구조화 강제)는 동시에 못 쓰므로, 검색 단계는
 //   프롬프트로 JSON을 요청하고 텍스트에서 파싱한다(extractJson).
 
-const DEFAULT_MODEL = 'gemini-2.5-flash'
+const DEFAULT_MODEL = 'gemini-flash-latest'
 
 /** 구조화 출력용 스키마 정의(프롬프트에 삽입되는 JSON Schema). */
 export interface OutputTool {

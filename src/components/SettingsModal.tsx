@@ -17,8 +17,8 @@ interface Props {
 }
 
 const MODELS = [
-  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (권장 · 무료 티어)' },
-  { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite (가장 빠름·가벼움)' },
+  { id: 'gemini-flash-latest', label: 'Gemini Flash (최신 · 권장 · 무료)' },
+  { id: 'gemini-flash-lite-latest', label: 'Gemini Flash-Lite (가장 가벼움)' },
   { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (안정적)' }
 ]
 
