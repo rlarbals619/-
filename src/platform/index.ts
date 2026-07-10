@@ -122,7 +122,7 @@ export interface ProposalsSummary {
   items: { title: string; summary: string }[]
 }
 
-/** 제안서 파일(PDF·이미지)을 업로드해 메일의 "제안서 소개" 블록을 자동 생성한다. */
+/** 제안서 파일(PDF)을 업로드해 메일의 "제안서 소개" 블록을 자동 생성한다. */
 export async function summarizeProposals(files: File[], model?: string): Promise<ProposalsSummary> {
   const form = new FormData()
   for (const f of files) form.append('files', f)

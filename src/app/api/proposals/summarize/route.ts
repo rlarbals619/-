@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { AnthropicService, type DocumentInput, type OutputTool } from '@/lib/services/anthropic'
 
-// 제안서 첨부(PDF·이미지)를 읽어 메일의 "제안서 소개" 블록을 자동 생성한다.
+// 제안서 첨부(PDF)를 읽어 메일의 "제안서 소개" 블록을 자동 생성한다.
 // 입력: multipart FormData (files[], 선택 model)
 // 출력: JSON { proposalsSection, items:[{title,summary}] }
 export const runtime = 'nodejs'
@@ -9,12 +9,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
 const SUPPORTED: Record<string, DocumentInput['mediaType']> = {
-  pdf: 'application/pdf',
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  gif: 'image/gif',
-  webp: 'image/webp'
+  pdf: 'application/pdf'
 }
 
 const SYSTEM = `당신은 초록우산어린이재단의 제안 담당자를 돕는 문서 요약 전문가입니다.
@@ -74,7 +69,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     const mediaType = mediaTypeOf(file)
     if (!mediaType) {
       return Response.json(
-        { error: `지원하지 않는 형식입니다: ${file.name} (PDF·PNG·JPG·GIF·WEBP만 가능)` },
+        { error: `지원하지 않는 형식입니다: ${file.name} (PDF만 가능)` },
         { status: 400 }
       )
     }

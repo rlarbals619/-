@@ -69,7 +69,7 @@ src/
 
 - **메일 전문 틀**: 인사말·담당자 안내·서명 등 본문 틀을 직접 수정합니다. 다음 치환 항목을
   쓸 수 있습니다 — `{{기업명}}`, `{{맞춤문단}}`(AI 생성 맞춤 문단), `{{제안서목록}}`(제안서 소개).
-- **제안서 소개**: 첨부할 제안서 파일(PDF·이미지)을 올리면 내용을 읽어 "제안서 소개" 문구를
+- **제안서 소개**: 첨부할 제안서 파일(PDF)을 올리면 내용을 읽어 "제안서 소개" 문구를
   자동 작성합니다(직접 수정도 가능). 캠페인/제안서가 바뀔 때마다 새 파일만 올리면 메일에 반영됩니다.
 
 설정은 브라우저(localStorage)에 저장되며, 미리보기(사이드 패널 "메일 전문")와 내보내기에
@@ -86,14 +86,20 @@ npm run typecheck  # 타입 검사
 npm run test       # 유닛 테스트 (vitest)
 ```
 
-## 배포 (Vercel)
+## 배포 (Vercel) — 웹사이트 링크 만들기
+
+> **링크는 배포 후 자동으로 생깁니다.** 이 앱은 Next.js 웹앱이라 Vercel에 올리면
+> `https://<프로젝트>.vercel.app` 형태의 **공개 링크**가 생성되고, 그 링크로 어디서나
+> 브라우저에서 바로 사용할 수 있습니다. 링크는 **본인 Vercel 계정**에서 아래 순서로
+> 발급되며(개발 지식 없이 약 2분), 실제 동작에는 **본인 Anthropic API 키**가 필요합니다.
 
 개발 지식이 없어도 아래 순서대로 하면 배포됩니다. (Vercel 무료 Hobby 플랜으로도 가능)
 
 1. **GitHub 리포지토리를 Vercel에 연결**
-   - [vercel.com](https://vercel.com)에 GitHub 계정으로 로그인 → **Add New… → Project**
-   - 이 리포지토리를 선택하고 **Import**. 프레임워크는 자동으로 **Next.js**로 감지됩니다
-     (별도 빌드 설정·`vercel.json` 불필요).
+   - **[vercel.com/new](https://vercel.com/new)** 접속 → GitHub 계정으로 로그인
+     → 이 리포지토리(`rlarbals619/-`)를 **Import**.
+   - (또는 [vercel.com](https://vercel.com) → **Add New… → Project** → 이 리포 선택 → **Import**)
+   - 프레임워크는 자동으로 **Next.js**로 감지됩니다(별도 빌드 설정·`vercel.json` 불필요).
 2. **환경변수 등록** (배포 전, Import 화면의 *Environment Variables* 또는
    Project → **Settings → Environment Variables**)
    - Name: `ANTHROPIC_API_KEY`, Value: 발급받은 키(`sk-ant-...`)

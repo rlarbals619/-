@@ -181,15 +181,15 @@ export function SettingsModal({ open, onClose, onSaved }: Props): JSX.Element | 
             </button>
           </div>
           <p className="mb-2 text-xs text-slate-400 dark:text-slate-500">
-            제안서 파일(PDF·이미지)을 올리면 내용을 읽어 자동 작성합니다. 직접 수정도 가능합니다.
+            제안서 파일(PDF)을 올리면 내용을 읽어 자동 작성합니다. 직접 수정도 가능합니다.
           </p>
           <input
             ref={proposalFileRef}
             type="file"
-            accept=".pdf,.png,.jpg,.jpeg,.gif,.webp"
+            accept=".pdf"
             multiple
             className="hidden"
-            aria-label="제안서 파일 (PDF 또는 이미지)"
+            aria-label="제안서 파일 (PDF)"
             onChange={(e) => void handleProposalFiles(e.target.files)}
           />
           <div className="mb-1 flex flex-wrap items-center gap-2">
