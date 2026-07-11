@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { GeminiService, type DocumentInput, type OutputTool } from '@/lib/services/gemini'
+import { sanitizeModel } from '@shared/types'
 
 // 제안서 첨부(PDF)를 읽어 메일의 "제안서 소개" 블록을 자동 생성한다.
 // 입력: multipart FormData (files[], 선택 model)
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   } catch {
     return Response.json({ error: '제안서 파일을 첨부해 주세요.' }, { status: 400 })
   }
-  const model = String(form.get('model') ?? '').trim() || undefined
+  const model = sanitizeModel(String(form.get('model') ?? '').trim() || undefined)
   const files = form.getAll('files').filter((f): f is File => typeof f === 'object' && 'arrayBuffer' in f)
 
   if (files.length === 0) {

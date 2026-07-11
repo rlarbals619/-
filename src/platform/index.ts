@@ -10,7 +10,7 @@ import type {
   PipelineResult,
   StageProgress
 } from '@shared/types'
-import { DEFAULT_SETTINGS } from '@shared/types'
+import { DEFAULT_SETTINGS, sanitizeModel } from '@shared/types'
 
 /** 파이프라인 실행 입력(브라우저 File 포함). */
 export interface PipelineInput {
@@ -142,7 +142,11 @@ export function loadSettings(): AppSettings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS
   try {
     const raw = window.localStorage.getItem(SETTINGS_KEY)
-    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS
+    if (!raw) return DEFAULT_SETTINGS
+    const merged = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }
+    // 예전에 저장된 사용 불가 모델명(예: gemini-2.5-flash)을 현재 기본값으로 보정.
+    merged.model = sanitizeModel(merged.model)
+    return merged
   } catch {
     return DEFAULT_SETTINGS
   }

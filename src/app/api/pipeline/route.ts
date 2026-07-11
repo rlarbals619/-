@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server'
 import type { Company, PipelineConfig, StageProgress } from '@shared/types'
+import { sanitizeModel } from '@shared/types'
 import { Pipeline } from '@/lib/pipeline'
 import { GeminiService } from '@/lib/services/gemini'
 import { GeminiCompanySearch } from '@/lib/services/companySearch'
@@ -28,7 +29,8 @@ type StreamLine =
 export async function POST(req: NextRequest): Promise<Response> {
   const form = await req.formData()
   const industry = String(form.get('industry') ?? '').trim()
-  const model = String(form.get('model') ?? '').trim() || undefined
+  // 클라이언트가 보낸 모델이 허용 목록에 없으면(예: 브라우저에 캐시된 옛 모델명) 기본값으로 보정.
+  const model = sanitizeModel(String(form.get('model') ?? '').trim() || undefined)
   const maxRaw = Number(form.get('maxCompanies'))
   const config: PipelineConfig = {
     industry,

@@ -96,11 +96,25 @@ export interface AppSettings {
   proposalsSection: string
 }
 
+/** 선택 가능한 Gemini 모델 id 목록(허용 목록). 이외 값은 기본값으로 보정한다. */
+export const GEMINI_MODEL_IDS = [
+  'gemini-flash-latest',
+  'gemini-flash-lite-latest',
+  'gemini-2.0-flash'
+] as const
+
 export const DEFAULT_SETTINGS: AppSettings = {
   model: 'gemini-flash-latest',
   maxCompanies: 15,
   emailTemplate: DEFAULT_EMAIL_TEMPLATE,
   proposalsSection: DEFAULT_PROPOSALS_SECTION
+}
+
+/** 저장/전달된 모델 id가 허용 목록에 없으면(예: 예전 캐시된 값) 기본값으로 보정. */
+export function sanitizeModel(model: string | undefined | null): string {
+  return model && (GEMINI_MODEL_IDS as readonly string[]).includes(model)
+    ? model
+    : DEFAULT_SETTINGS.model
 }
 
 /** 내보내기 형식. */
