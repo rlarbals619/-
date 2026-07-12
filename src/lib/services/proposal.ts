@@ -7,7 +7,7 @@ import type { ProposalService, StageContext } from './types'
 
 // 최종 후보 기업별 맞춤 제안 문단 생성(가장 무거운 단계 → 파이프라인 마지막 직전).
 
-const CONCURRENCY = 4
+const CONCURRENCY = 2
 
 const SYSTEM = `당신은 초록우산어린이재단 사회공헌협력본부의 제안 담당자입니다.
 기업에 보낼 후원 제안 메일에 들어갈 "맞춤 문단"을 작성합니다. 규칙:

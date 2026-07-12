@@ -104,8 +104,8 @@ export const GEMINI_MODEL_IDS = [
 ] as const
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  model: 'gemini-flash-latest',
-  maxCompanies: 15,
+  model: 'gemini-2.0-flash',
+  maxCompanies: 8,
   emailTemplate: DEFAULT_EMAIL_TEMPLATE,
   proposalsSection: DEFAULT_PROPOSALS_SECTION
 }

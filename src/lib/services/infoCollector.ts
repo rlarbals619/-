@@ -8,7 +8,7 @@ import type { InfoCollectorService, StageContext } from './types'
 // - resolveBizNumbers: 사업자등록번호만 (엄격 법인 필터 직전, 번호 없는 기업 대상)
 // - collectContacts: 홈페이지·주소·전화·이메일 (dedupe 이후, 최종 후보 대상)
 
-const CONCURRENCY = 4
+const CONCURRENCY = 2
 
 interface BizNumberResult {
   bizNumber?: string | null

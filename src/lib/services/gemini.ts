@@ -3,13 +3,16 @@ import { GoogleGenAI, createUserContent, createPartFromBase64, type Part } from 
 // Google Gemini 클라이언트 래퍼. 서버 환경변수의 API 키와 지정 모델을 사용하고,
 // Google 검색(그라운딩)으로 구조화(JSON) 결과를 뽑아내는 헬퍼를 제공한다.
 //
-// Anthropic 대비 주의점(무료 티어 안정성):
-// - gemini-2.5-flash는 기본적으로 "thinking"이 켜져 출력 토큰 예산을 잠식할 수 있어
-//   thinkingBudget=0으로 끈다(응답이 비지 않게 + 무료 티어에서 빠르고 저렴하게).
+// 무료 티어 안정성:
+// - gemini-2.5-flash류는 기본적으로 "thinking"이 켜져 출력 토큰 예산을 잠식할 수 있어
+//   thinkingBudget=0으로 끈다(응답이 비지 않게 + 빠르고 저렴하게).
 // - Google 검색 도구와 responseSchema(구조화 강제)는 동시에 못 쓰므로, 검색 단계는
 //   프롬프트로 JSON을 요청하고 텍스트에서 파싱한다(extractJson).
+// - 무료 티어는 분당/일일 요청 한도(RPM/RPD)가 낮다 → 429/503은 지수 백오프로 재시도한다.
 
-const DEFAULT_MODEL = 'gemini-flash-latest'
+const DEFAULT_MODEL = 'gemini-2.0-flash'
+
+const MAX_RETRIES = 5
 
 /** 구조화 출력용 스키마 정의(프롬프트에 삽입되는 JSON Schema). */
 export interface OutputTool {
@@ -62,36 +65,34 @@ export class GeminiService {
     maxTokens = 4096,
     opts: CallOpts = {}
   ): Promise<T> {
-    const res = await this.client().models.generateContent({
-      model: this.modelId,
-      contents: user + GeminiService.jsonInstruction(outputTool.input_schema),
-      config: {
+    const text = await this.call(
+      user + GeminiService.jsonInstruction(outputTool.input_schema),
+      {
         systemInstruction: system,
         tools: [{ googleSearch: {} }],
         maxOutputTokens: maxTokens,
-        thinkingConfig: { thinkingBudget: 0 },
-        abortSignal: opts.signal
-      }
-    })
-    return extractJson<T>(res.text ?? '')
+        thinkingConfig: { thinkingBudget: 0 }
+      },
+      opts.signal
+    )
+    return extractJson<T>(text)
   }
 
   /**
    * Google 검색 그라운딩을 붙여 실행하고, 응답 텍스트에서 JSON을 파싱한다(폴백 경로).
    */
   async searchJson<T>(system: string, user: string, maxTokens = 4096, opts: CallOpts = {}): Promise<T> {
-    const res = await this.client().models.generateContent({
-      model: this.modelId,
-      contents: user,
-      config: {
+    const text = await this.call(
+      user,
+      {
         systemInstruction: system,
         tools: [{ googleSearch: {} }],
         maxOutputTokens: maxTokens,
-        thinkingConfig: { thinkingBudget: 0 },
-        abortSignal: opts.signal
-      }
-    })
-    return extractJson<T>(res.text ?? '')
+        thinkingConfig: { thinkingBudget: 0 }
+      },
+      opts.signal
+    )
+    return extractJson<T>(text)
   }
 
   /** 검색 없이 순수 텍스트 생성(제안 문단 등). */
@@ -101,17 +102,16 @@ export class GeminiService {
     maxTokens = 1024,
     opts: CallOpts = {}
   ): Promise<string> {
-    const res = await this.client().models.generateContent({
-      model: this.modelId,
-      contents: user,
-      config: {
+    const text = await this.call(
+      user,
+      {
         systemInstruction: system,
         maxOutputTokens: maxTokens,
-        thinkingConfig: { thinkingBudget: 0 },
-        abortSignal: opts.signal
-      }
-    })
-    return (res.text ?? '').trim()
+        thinkingConfig: { thinkingBudget: 0 }
+      },
+      opts.signal
+    )
+    return text.trim()
   }
 
   /**
@@ -129,19 +129,85 @@ export class GeminiService {
     const parts: Part[] = documents.map((d) => createPartFromBase64(d.base64, d.mediaType))
     parts.push({ text: instruction + GeminiService.jsonInstruction(outputTool.input_schema) })
 
-    const res = await this.client().models.generateContent({
-      model: this.modelId,
-      contents: createUserContent(parts),
-      config: {
+    const text = await this.call(
+      createUserContent(parts),
+      {
         systemInstruction: system,
         responseMimeType: 'application/json',
         maxOutputTokens: maxTokens,
-        thinkingConfig: { thinkingBudget: 0 },
-        abortSignal: opts.signal
-      }
-    })
-    return extractJson<T>(res.text ?? '')
+        thinkingConfig: { thinkingBudget: 0 }
+      },
+      opts.signal
+    )
+    return extractJson<T>(text)
   }
+
+  /** generateContent 호출 + 429/503 지수 백오프 재시도. 응답 텍스트를 반환한다. */
+  private async call(
+    contents: Parameters<GoogleGenAI['models']['generateContent']>[0]['contents'],
+    config: Record<string, unknown>,
+    signal?: AbortSignal
+  ): Promise<string> {
+    let lastErr: unknown
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const res = await this.client().models.generateContent({
+          model: this.modelId,
+          contents,
+          config: { ...config, abortSignal: signal }
+        })
+        return res.text ?? ''
+      } catch (err) {
+        if (isAbort(err) || signal?.aborted) throw err
+        if (!isRateLimited(err) || attempt === MAX_RETRIES) throw err
+        lastErr = err
+        // 지수 백오프: 대략 3s, 6s, 12s, 24s, 48s (+지터). 무료 티어 RPM 회복 대기.
+        const wait = 3000 * 2 ** attempt + Math.floor(Math.random() * 1000)
+        await sleep(wait, signal)
+      }
+    }
+    throw lastErr
+  }
+}
+
+/** 요청 한도 초과(429)/일시 과부하(503) 여부. */
+function isRateLimited(err: unknown): boolean {
+  const status = (err as { status?: number })?.status
+  const msg = err instanceof Error ? err.message : String(err)
+  return status === 429 || status === 503 || /\b429\b|\b503\b|RESOURCE_EXHAUSTED|UNAVAILABLE|overloaded|quota/i.test(msg)
+}
+
+function isAbort(err: unknown): boolean {
+  return err instanceof Error && err.name === 'AbortError'
+}
+
+/** 취소 가능한 지연. signal이 abort되면 즉시 AbortError로 reject. */
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(abortError())
+      return
+    }
+    const timer = setTimeout(() => {
+      cleanup()
+      resolve()
+    }, ms)
+    const onAbort = (): void => {
+      cleanup()
+      reject(abortError())
+    }
+    const cleanup = (): void => {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', onAbort)
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
+function abortError(): Error {
+  const e = new Error('aborted')
+  e.name = 'AbortError'
+  return e
 }
 
 /** 텍스트에서 첫 번째 JSON 객체/배열을 관대하게 추출·파싱. */
