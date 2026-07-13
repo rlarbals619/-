@@ -17,9 +17,8 @@ interface Props {
 }
 
 const MODELS = [
-  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (권장 · 무료 넉넉)' },
-  { id: 'gemini-flash-latest', label: 'Gemini Flash (최신)' },
-  { id: 'gemini-flash-lite-latest', label: 'Gemini Flash-Lite (가장 가벼움)' }
+  { id: 'gemini-flash-latest', label: 'Gemini Flash (권장)' },
+  { id: 'gemini-flash-lite-latest', label: 'Gemini Flash-Lite (가장 가벼움 · 한도 넉넉)' }
 ]
 
 // 설정 화면: 모델·발굴 수 + 메일 전문 틀 편집 + 제안서 소개(파일 업로드 자동 생성).

@@ -10,7 +10,7 @@ import { GoogleGenAI, createUserContent, createPartFromBase64, type Part } from 
 //   프롬프트로 JSON을 요청하고 텍스트에서 파싱한다(extractJson).
 // - 무료 티어는 분당/일일 요청 한도(RPM/RPD)가 낮다 → 429/503은 지수 백오프로 재시도한다.
 
-const DEFAULT_MODEL = 'gemini-2.0-flash'
+const DEFAULT_MODEL = 'gemini-flash-latest'
 
 const MAX_RETRIES = 5
 
